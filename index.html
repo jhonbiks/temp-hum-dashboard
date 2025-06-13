@@ -10,7 +10,9 @@
 
   <script>
     async function fetchData() {
-      const res = await fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv');
+      const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv';
+      const res = await fetch(`${csvUrl}&t=${new Date().getTime()}`);
+
       const text = await res.text();
       const rows = text.trim().split('\n').map(row => row.split(','));
       const labels = [], temp = [];
