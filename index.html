@@ -15,43 +15,33 @@
   <script>
     const csvUrl = https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv; // 
 
-    async function fetchData() {
-      const response = await fetch(csvUrl);
-      const text = await response.text();
-      const rows = text.trim().split('\n').map(r => r.split(','));
+async function fetchData() {
+  const res = await fetch('https://docs.google.com/spreadsheets/d/e/your-sheet-id/pub?output=csv');
+  const text = await res.text();
+  const rows = text.trim().split('\n').map(row => row.split(','));
+  const labels = [], temp = [];
 
-      const labels = [];
-      const values = [];
+  for (let i = 1; i < rows.length; i++) {
+    labels.push(rows[i][0]);
+    temp.push(parseFloat(rows[i][1]));
+  }
 
-      for (let i = 1; i < rows.length; i++) {
-        labels.push(rows[i][0]);          // timestamp
-        values.push(parseFloat(rows[i][1])); // sensor value
-      }
-
-      const ctx = document.getElementById('myChart').getContext('2d');
-      new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: 'Sensor Reading',
-            data: values,
-            borderColor: 'blue',
-            backgroundColor: 'rgba(0,0,255,0.1)',
-            fill: true,
-            tension: 0.2
-          }]
-        },
-        options: {
-          scales: {
-            x: { title: { display: true, text: 'Time' }},
-            y: { title: { display: true, text: 'Value' }}
-          }
-        }
-      });
+  new Chart(document.getElementById('myChart'), {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Temperature',
+        data: temp,
+        borderColor: 'orange',
+        backgroundColor: 'rgba(255,165,0,0.2)',
+        fill: true
+      }]
     }
+  });
+}
+fetchData();
 
-    fetchData();
   </script>
 </body>
 </html>
