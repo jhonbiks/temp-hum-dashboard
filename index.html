@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ESP Sensor Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f9f9f9; }
+    canvas { background: white; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+  </style>
+</head>
+<body>
+  <h1>ESP32 Sensor Live Data</h1>
+  <canvas id="myChart" width="800" height="400"></canvas>
+
+  <script>
+    const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRmbXxxxyyyzzz/pub?output=csv'; // Replace with your actual CSV link
+
+    async function fetchData() {
+      const response = await fetch(csvUrl);
+      const text = await response.text();
+      const rows = text.trim().split('\n').map(r => r.split(','));
+
+      const labels = [];
+      const values = [];
+
+      for (let i = 1; i < rows.length; i++) {
+        labels.push(rows[i][0]);          // timestamp
+        values.push(parseFloat(rows[i][1])); // sensor value
+      }
+
+      const ctx = document.getElementById('myChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Sensor Reading',
+            data: values,
+            borderColor: 'blue',
+            backgroundColor: 'rgba(0,0,255,0.1)',
+            fill: true,
+            tension: 0.2
+          }]
+        },
+        options: {
+          scales: {
+            x: { title: { display: true, text: 'Time' }},
+            y: { title: { display: true, text: 'Value' }}
+          }
+        }
+      });
+    }
+
+    fetchData();
+  </script>
+</body>
+</html>
