@@ -8,40 +8,66 @@
   <h1>ESP32 Temperature & Humidity Dashboard</h1>
   <canvas id="myChart" width="800" height="400"></canvas>
 
-  <script>
-let myChart;
+<div>
+  <h2>Latest Reading:</h2>
+  <p>🌡️ Temperature: <span id="latest-temp">--</span> °C</p>
+  <p>💧 Humidity: <span id="latest-hum">--</span> %</p>
+</div>
 
-async function fetchData() {
-  const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv';
-  const res = await fetch(`${csvUrl}&t=${new Date().getTime()}`);
-  const text = await res.text();
-  const rows = text.trim().split('\n').map(row => row.split(','));
+<canvas id="myChart" width="800" height="400"></canvas>
 
-  const labels = [], temp = [];
-  for (let i = 1; i < rows.length; i++) {
-    labels.push(rows[i][0]);
-    temp.push(parseFloat(rows[i][1]));
+<script>
+  let myChart;
+
+  async function fetchData() {
+    const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv';
+    const res = await fetch(`${csvUrl}&t=${new Date().getTime()}`);
+    const text = await res.text();
+    const rows = text.trim().split('\n').map(row => row.split(','));
+
+    const labels = [], temp = [], hum = [];
+    for (let i = 1; i < rows.length; i++) {
+      labels.push(rows[i][0]);
+      temp.push(parseFloat(rows[i][1]));
+      hum.push(parseFloat(rows[i][2]));
+    }
+
+    // Update latest values in text
+    document.getElementById('latest-temp').textContent = temp[temp.length - 1].toFixed(2);
+    document.getElementById('latest-hum').textContent = hum[hum.length - 1].toFixed(2);
+
+    // Destroy previous chart if exists
+    if (myChart) myChart.destroy();
+
+    // Create new chart with temperature and humidity
+    myChart = new Chart(document.getElementById('myChart'), {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Temperature (°C)',
+            data: temp,
+            borderColor: 'orange',
+            backgroundColor: 'rgba(255,165,0,0.2)',
+            fill: true
+          },
+          {
+            label: 'Humidity (%)',
+            data: hum,
+            borderColor: 'blue',
+            backgroundColor: 'rgba(0,0,255,0.1)',
+            fill: true
+          }
+        ]
+      }
+    });
   }
 
-  if (myChart) myChart.destroy(); // clear previous chart
+  fetchData();
+  setInterval(fetchData, 5000); // Refresh every 5 seconds
+</script>
 
-  myChart = new Chart(document.getElementById('myChart'), {
-    type: 'line',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Temperature',
-        data: temp,
-        borderColor: 'orange',
-        backgroundColor: 'rgba(255,165,0,0.2)',
-        fill: true
-      }]
-    }
-  });
-}
-
-fetchData();
-setInterval(fetchData, 5000); // refresh every 5 seconds
   </script>
 </body>
 </html>
