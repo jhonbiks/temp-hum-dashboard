@@ -9,34 +9,39 @@
   <canvas id="myChart" width="800" height="400"></canvas>
 
   <script>
-    async function fetchData() {
-      const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv';
-      const res = await fetch(`${csvUrl}&t=${new Date().getTime()}`);
+let myChart;
 
-      const text = await res.text();
-      const rows = text.trim().split('\n').map(row => row.split(','));
-      const labels = [], temp = [];
+async function fetchData() {
+  const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv';
+  const res = await fetch(`${csvUrl}&t=${new Date().getTime()}`);
+  const text = await res.text();
+  const rows = text.trim().split('\n').map(row => row.split(','));
 
-      for (let i = 1; i < rows.length; i++) {
-        labels.push(rows[i][0]);
-        temp.push(parseFloat(rows[i][1]));
-      }
+  const labels = [], temp = [];
+  for (let i = 1; i < rows.length; i++) {
+    labels.push(rows[i][0]);
+    temp.push(parseFloat(rows[i][1]));
+  }
 
-      new Chart(document.getElementById('myChart'), {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: 'Temperature',
-            data: temp,
-            borderColor: 'orange',
-            backgroundColor: 'rgba(255,165,0,0.2)',
-            fill: true
-          }]
-        }
-      });
+  if (myChart) myChart.destroy(); // clear previous chart
+
+  myChart = new Chart(document.getElementById('myChart'), {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Temperature',
+        data: temp,
+        borderColor: 'orange',
+        backgroundColor: 'rgba(255,165,0,0.2)',
+        fill: true
+      }]
     }
-    fetchData();
+  });
+}
+
+fetchData();
+setInterval(fetchData, 5000); // refresh every 5 seconds
   </script>
 </body>
 </html>
