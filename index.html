@@ -1,47 +1,40 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>ESP Sensor Dashboard</title>
+  <title>ESP32 Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body { font-family: sans-serif; padding: 20px; background: #f9f9f9; }
-    canvas { background: white; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-  </style>
 </head>
 <body>
-  <h1>ESP32 Sensor Live Data</h1>
+  <h1>ESP32 Temperature & Humidity Dashboard</h1>
   <canvas id="myChart" width="800" height="400"></canvas>
 
   <script>
-    const csvUrl = https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv; // 
+    async function fetchData() {
+      const res = await fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv');
+      const text = await res.text();
+      const rows = text.trim().split('\n').map(row => row.split(','));
+      const labels = [], temp = [];
 
-async function fetchData() {
-  const res = await fetch('https://docs.google.com/spreadsheets/d/e/your-sheet-id/pub?output=csv');
-  const text = await res.text();
-  const rows = text.trim().split('\n').map(row => row.split(','));
-  const labels = [], temp = [];
+      for (let i = 1; i < rows.length; i++) {
+        labels.push(rows[i][0]);
+        temp.push(parseFloat(rows[i][1]));
+      }
 
-  for (let i = 1; i < rows.length; i++) {
-    labels.push(rows[i][0]);
-    temp.push(parseFloat(rows[i][1]));
-  }
-
-  new Chart(document.getElementById('myChart'), {
-    type: 'line',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Temperature',
-        data: temp,
-        borderColor: 'orange',
-        backgroundColor: 'rgba(255,165,0,0.2)',
-        fill: true
-      }]
+      new Chart(document.getElementById('myChart'), {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Temperature',
+            data: temp,
+            borderColor: 'orange',
+            backgroundColor: 'rgba(255,165,0,0.2)',
+            fill: true
+          }]
+        }
+      });
     }
-  });
-}
-fetchData();
-
+    fetchData();
   </script>
 </body>
 </html>
