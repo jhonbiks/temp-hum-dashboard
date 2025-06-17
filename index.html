@@ -9,7 +9,6 @@
       padding: 20px;
       max-width: 900px;
       margin: auto;
-      background-color: #f4f7f9;
     }
 
     h1 {
@@ -19,11 +18,6 @@
 
     .reading {
       font-size: 1.5em;
-      margin-bottom: 20px;
-      text-align: center;
-    }
-
-    .controls {
       text-align: center;
       margin-bottom: 20px;
     }
@@ -32,38 +26,33 @@
       margin-top: 30px;
     }
 
-    .qr-section {
+    .button-section, .qr-section {
       text-align: center;
       margin-top: 40px;
     }
 
-    .qr-section a {
-      text-decoration: none;
-      color: #0077cc;
-      font-weight: bold;
-    }
-
     .download-btn {
-      background-color: #0077cc;
+      background-color: #008080;
       color: white;
-      padding: 10px 16px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      margin-left: 10px;
-    }
-
-    .download-btn:hover {
-      background-color: #005fa3;
-    }
-
-    select {
-      padding: 8px;
+      padding: 10px 20px;
+      text-decoration: none;
+      border-radius: 6px;
       font-size: 1em;
+    }
+
+    .qr-section a {
+      color: #008080;
+      text-decoration: underline;
+    }
+
+    @media (max-width: 600px) {
+      .reading {
+        font-size: 1.2em;
+      }
     }
   </style>
 
-  <!-- Google Charts -->
+  <!-- Google Charts Loader -->
   <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 </head>
 <body>
@@ -74,116 +63,115 @@
     <strong>Latest Humidity:</strong> <span id="hum">Loading...</span> %
   </div>
 
-  <div class="controls">
-    <label for="range">View last:</label>
-    <select id="range">
-      <option value="50">50 rows</option>
-      <option value="100" selected>100 rows</option>
-      <option value="200">200 rows</option>
-    </select>
-
-    <button class="download-btn" onclick="downloadCSV()">Download CSV</button>
-  </div>
-
   <div id="chart_temp"></div>
   <div id="chart_hum"></div>
 
-  <div class="qr-section">
-    <p>🔗 <a href="https://docs.google.com/spreadsheets/d/15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU/edit?usp=sharing" target="_blank">
-      View Full Google Sheet
-    </a></p>
+  <div class="button-section">
+    <a class="download-btn" href="https://docs.google.com/spreadsheets/d/15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU/export?format=csv" target="_blank">⬇️ Download CSV</a>
   </div>
 
-  <script>
-    const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv';
-    const sheetID = '15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU';
-    const sheetName = 'Data';
+  <div class="qr-section">
+    <h2>📄 View Full Data</h2>
+    <p><a href="https://docs.google.com/spreadsheets/d/15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU/edit?usp=sharing" target="_blank">Open in Google Sheets</a></p>
+  </div>
 
-    // Auto-update readings every 10 seconds
+  <script type="text/javascript">
+    google.charts.load('current', { 'packages': ['corechart'] });
+    google.charts.setOnLoadCallback(initDashboard);
+
+    let chartTemp, chartHum;
+    const rowLimit = 50;
+
+    function initDashboard() {
+      chartTemp = new google.visualization.LineChart(document.getElementById('chart_temp'));
+      chartHum = new google.visualization.LineChart(document.getElementById('chart_hum'));
+      fetchAndDraw();
+      setInterval(fetchAndDraw, 10000);
+    }
+
+    function fetchAndDraw() {
+      const queryString = encodeURIComponent(`SELECT A, B, C ORDER BY A DESC LIMIT ${rowLimit}`);
+      const sheetID = '15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU';
+      const query = new google.visualization.Query(
+        `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?sheet=Data&tq=${queryString}`
+      );
+
+      query.send(function (response) {
+        if (response.isError()) {
+          console.error('Error fetching data: ' + response.getMessage());
+          return;
+        }
+
+        const data = response.getDataTable();
+        const rows = [];
+
+        for (let i = 0; i < data.getNumberOfRows(); i++) {
+          rows.push({
+            time: data.getValue(i, 0),
+            temp: data.getValue(i, 1),
+            hum: data.getValue(i, 2)
+          });
+        }
+
+        rows.reverse();
+
+        const tempData = new google.visualization.DataTable();
+        const humData = new google.visualization.DataTable();
+        tempData.addColumn('datetime', 'Time');
+        tempData.addColumn('number', 'Temperature');
+        humData.addColumn('datetime', 'Time');
+        humData.addColumn('number', 'Humidity');
+
+        rows.forEach(r => {
+          tempData.addRow([r.time, r.temp]);
+          humData.addRow([r.time, r.hum]);
+        });
+
+        const optionsTemp = {
+          title: 'Temperature Over Time',
+          height: 300,
+          hAxis: { title: 'Time', format: 'h:mm:ss a' },
+          vAxis: { title: 'Temperature (°C)' },
+          colors: ['#e67e22'],
+          curveType: 'function',
+          legend: { position: 'bottom' },
+          animation: { duration: 300, easing: 'linear', startup: true }
+        };
+
+        const optionsHum = {
+          title: 'Humidity Over Time',
+          height: 300,
+          hAxis: { title: 'Time', format: 'h:mm:ss a' },
+          vAxis: { title: 'Humidity (%)' },
+          colors: ['#3498db'],
+          curveType: 'function',
+          legend: { position: 'bottom' },
+          animation: { duration: 300, easing: 'linear', startup: true }
+        };
+
+        chartTemp.draw(tempData, optionsTemp);
+        chartHum.draw(humData, optionsHum);
+      });
+    }
+
+    // Fetch latest value for numeric display
+    const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv';
+
     async function fetchLatestReadings() {
       try {
         const res = await fetch(csvUrl);
         const csv = await res.text();
         const rows = csv.trim().split('\n');
         const lastRow = rows[rows.length - 1].split(',');
-
         document.getElementById("temp").textContent = lastRow[1];
         document.getElementById("hum").textContent = lastRow[2];
       } catch (err) {
-        console.error("Error fetching readings:", err);
+        console.error("Error fetching latest readings:", err);
       }
     }
 
     fetchLatestReadings();
     setInterval(fetchLatestReadings, 10000);
-
-    // Load Google Charts
-    google.charts.load('current', { 'packages': ['corechart'] });
-    google.charts.setOnLoadCallback(drawCharts);
-    setInterval(drawCharts, 30000); // Refresh charts every 30s
-
-    document.getElementById("range").addEventListener("change", drawCharts);
-
-    function drawCharts() {
-      const rowLimit = document.getElementById("range").value;
-      const queryString = encodeURIComponent(`SELECT A, B, C LIMIT ${rowLimit}`);
-      const query = new google.visualization.Query(
-        `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?sheet=${sheetName}&tq=${queryString}`
-      );
-
-      query.send(function (response) {
-        if (response.isError()) {
-          console.error('Chart data error: ', response.getMessage());
-          return;
-        }
-
-        const data = response.getDataTable();
-
-        const tempData = new google.visualization.DataTable();
-        tempData.addColumn('string', 'Time');
-        tempData.addColumn('number', 'Temperature (°C)');
-
-        const humData = new google.visualization.DataTable();
-        humData.addColumn('string', 'Time');
-        humData.addColumn('number', 'Humidity (%)');
-
-        for (let i = 0; i < data.getNumberOfRows(); i++) {
-          const time = data.getFormattedValue(i, 0);
-          tempData.addRow([time, data.getValue(i, 1)]);
-          humData.addRow([time, data.getValue(i, 2)]);
-        }
-
-        const optionsTemp = {
-          title: 'Temperature Over Time',
-          curveType: 'function',
-          legend: { position: 'bottom' },
-          height: 300,
-          hAxis: { title: 'Time' },
-          vAxis: { title: 'Temperature (°C)' },
-          colors: ['#e67e22']
-        };
-
-        const optionsHum = {
-          title: 'Humidity Over Time',
-          curveType: 'function',
-          legend: { position: 'bottom' },
-          height: 300,
-          hAxis: { title: 'Time' },
-          vAxis: { title: 'Humidity (%)' },
-          colors: ['#3498db']
-        };
-
-        new google.visualization.LineChart(document.getElementById('chart_temp')).draw(tempData, optionsTemp);
-        new google.visualization.LineChart(document.getElementById('chart_hum')).draw(humData, optionsHum);
-      });
-    }
-
-    function downloadCSV() {
-      const a = document.createElement('a');
-      a.href = csvUrl;
-      a.download = 'sensor_data.csv';
-      a.click();
-    }
   </script>
 </body>
 </html>
