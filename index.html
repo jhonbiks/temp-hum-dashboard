@@ -33,7 +33,7 @@
 
 function drawChart() {
   const queryString = encodeURIComponent('SELECT A, B, C LIMIT 100');
-  const sheetID = 'YOUR_SHEET_ID_HERE'; // 🔁 Replace with your actual Sheet ID
+  const sheetID = '15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU'; // 🔁 Replace with your actual Sheet ID
   const query = new google.visualization.Query(
     `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?sheet=Data1&tq=${queryString}`
   );
