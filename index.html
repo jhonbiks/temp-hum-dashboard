@@ -22,25 +22,13 @@
       margin-bottom: 20px;
     }
 
-    .thresholds {
+    #chart_temp, #chart_hum {
+      margin-top: 30px;
+    }
+
+    .button-section, .qr-section, .thresholds {
       text-align: center;
-      margin-bottom: 30px;
-    }
-
-    .thresholds input {
-      width: 80px;
-      margin: 5px;
-      padding: 5px;
-      font-size: 1em;
-    }
-
-    .thresholds label {
-      margin: 0 10px;
-    }
-
-    .button-section, .qr-section {
-      text-align: center;
-      margin-top: 40px;
+      margin-top: 30px;
     }
 
     .download-btn {
@@ -57,11 +45,30 @@
       text-decoration: underline;
     }
 
+    .thresholds input {
+      margin: 0 10px;
+      padding: 5px;
+      width: 80px;
+    }
+
+    #alert {
+      color: white;
+      background-color: red;
+      text-align: center;
+      padding: 10px;
+      margin-top: 20px;
+      display: none;
+      font-weight: bold;
+    }
+
     @media (max-width: 600px) {
-      .reading { font-size: 1.2em; }
+      .reading {
+        font-size: 1.2em;
+      }
     }
   </style>
 
+  <!-- Google Charts -->
   <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 </head>
 <body>
@@ -73,12 +80,16 @@
   </div>
 
   <div class="thresholds">
-    <label>Temp Min: <input type="number" id="tempMin" /></label>
-    <label>Temp Max: <input type="number" id="tempMax" /></label>
-    <label>Hum Min: <input type="number" id="humMin" /></label>
-    <label>Hum Max: <input type="number" id="humMax" /></label>
-    <button onclick="updateCharts()">Apply Thresholds</button>
+    <h3>Set Thresholds</h3>
+    <label>Temp Threshold (°C):
+      <input type="number" id="tempThreshold" value="30" step="0.1">
+    </label>
+    <label>Humidity Threshold (%):
+      <input type="number" id="humThreshold" value="70" step="0.1">
+    </label>
   </div>
+
+  <div id="alert">⚠️ Threshold exceeded!</div>
 
   <div id="chart_temp"></div>
   <div id="chart_hum"></div>
@@ -92,59 +103,23 @@
     <p><a href="https://docs.google.com/spreadsheets/d/15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU/edit?usp=sharing" target="_blank">Open in Google Sheets</a></p>
   </div>
 
-  <script>
+  <script type="text/javascript">
     google.charts.load('current', { 'packages': ['corechart'] });
     google.charts.setOnLoadCallback(initDashboard);
 
     let chartTemp, chartHum;
-    let tempData, humData;
-
     const rowLimit = 50;
-    const sheetID = '15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU';
-
-    function saveThresholds() {
-      localStorage.setItem("tempMin", document.getElementById("tempMin").value);
-      localStorage.setItem("tempMax", document.getElementById("tempMax").value);
-      localStorage.setItem("humMin", document.getElementById("humMin").value);
-      localStorage.setItem("humMax", document.getElementById("humMax").value);
-    }
-
-    function loadThresholds() {
-      document.getElementById("tempMin").value = localStorage.getItem("tempMin") || '';
-      document.getElementById("tempMax").value = localStorage.getItem("tempMax") || '';
-      document.getElementById("humMin").value = localStorage.getItem("humMin") || '';
-      document.getElementById("humMax").value = localStorage.getItem("humMax") || '';
-    }
 
     function initDashboard() {
       chartTemp = new google.visualization.LineChart(document.getElementById('chart_temp'));
       chartHum = new google.visualization.LineChart(document.getElementById('chart_hum'));
-      loadThresholds();
       fetchAndDraw();
-      setInterval(fetchAndDraw, 10000);
-    }
-
-    function getThresholdLines(type) {
-      const min = parseFloat(document.getElementById(`${type}Min`).value);
-      const max = parseFloat(document.getElementById(`${type}Max`).value);
-      const lines = [];
-
-      if (!isNaN(min)) {
-        lines.push({ value: min, color: '#e74c3c', lineWidth: 1, opacity: 0.7 });
-      }
-      if (!isNaN(max)) {
-        lines.push({ value: max, color: '#e74c3c', lineWidth: 1, opacity: 0.7 });
-      }
-      return lines;
-    }
-
-    function updateCharts() {
-      saveThresholds();
-      drawCharts(tempData, humData);
+      setInterval(fetchAndDraw, 10000); // graph every 10s
     }
 
     function fetchAndDraw() {
       const queryString = encodeURIComponent(`SELECT A, B, C ORDER BY A DESC LIMIT ${rowLimit}`);
+      const sheetID = '15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU';
       const query = new google.visualization.Query(
         `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?sheet=Data&tq=${queryString}`
       );
@@ -168,8 +143,8 @@
 
         rows.reverse();
 
-        tempData = new google.visualization.DataTable();
-        humData = new google.visualization.DataTable();
+        const tempData = new google.visualization.DataTable();
+        const humData = new google.visualization.DataTable();
         tempData.addColumn('datetime', 'Time');
         tempData.addColumn('number', 'Temperature');
         humData.addColumn('datetime', 'Time');
@@ -180,60 +155,48 @@
           humData.addRow([r.time, r.hum]);
         });
 
-        drawCharts(tempData, humData);
+        const tempThres = parseFloat(document.getElementById("tempThreshold").value);
+        const humThres = parseFloat(document.getElementById("humThreshold").value);
+
+        const optionsTemp = {
+          title: 'Temperature Over Time',
+          height: 300,
+          hAxis: { title: 'Time', format: 'h:mm:ss a' },
+          vAxis: {
+            title: 'Temperature (°C)',
+            viewWindow: { min: 0 }
+          },
+          colors: ['#e67e22'],
+          curveType: 'function',
+          legend: { position: 'bottom' },
+          series: {
+            0: {}
+          },
+          vAxes: {
+            0: {
+              gridlines: { color: '#ccc' }
+            }
+          }
+        };
+
+        const optionsHum = {
+          title: 'Humidity Over Time',
+          height: 300,
+          hAxis: { title: 'Time', format: 'h:mm:ss a' },
+          vAxis: {
+            title: 'Humidity (%)',
+            viewWindow: { min: 0 }
+          },
+          colors: ['#3498db'],
+          curveType: 'function',
+          legend: { position: 'bottom' }
+        };
+
+        chartTemp.draw(tempData, optionsTemp);
+        chartHum.draw(humData, optionsHum);
       });
     }
 
-    function drawCharts(tempData, humData) {
-      const optionsTemp = {
-        title: 'Temperature Over Time',
-        height: 300,
-        hAxis: { title: 'Time', format: 'h:mm:ss a' },
-        vAxis: {
-          title: 'Temperature (°C)',
-          baseline: null,
-          gridlines: { count: -1 },
-          ticks: [],
-          minorGridlines: { count: 0 }
-        },
-        colors: ['#e67e22'],
-        curveType: 'function',
-        legend: { position: 'bottom' }
-      };
-
-      const optionsHum = {
-        title: 'Humidity Over Time',
-        height: 300,
-        hAxis: { title: 'Time', format: 'h:mm:ss a' },
-        vAxis: {
-          title: 'Humidity (%)',
-          baseline: null,
-          gridlines: { count: -1 },
-          ticks: [],
-          minorGridlines: { count: 0 }
-        },
-        colors: ['#3498db'],
-        curveType: 'function',
-        legend: { position: 'bottom' }
-      };
-
-      optionsTemp.vAxis.viewWindow = {};
-      optionsHum.vAxis.viewWindow = {};
-
-      optionsTemp.vAxis.gridlines = { color: '#ddd' };
-      optionsHum.vAxis.gridlines = { color: '#ddd' };
-
-      const tempLines = getThresholdLines("temp");
-      const humLines = getThresholdLines("hum");
-
-      if (tempLines.length) optionsTemp.vAxis.gridlines.count = 5;
-      if (humLines.length) optionsHum.vAxis.gridlines.count = 5;
-
-      chartTemp.draw(tempData, optionsTemp);
-      chartHum.draw(humData, optionsHum);
-    }
-
-    // Latest values
     const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv';
 
     async function fetchLatestReadings() {
@@ -242,15 +205,29 @@
         const csv = await res.text();
         const rows = csv.trim().split('\n');
         const lastRow = rows[rows.length - 1].split(',');
-        document.getElementById("temp").textContent = lastRow[1];
-        document.getElementById("hum").textContent = lastRow[2];
+
+        const temp = parseFloat(lastRow[1]);
+        const hum = parseFloat(lastRow[2]);
+
+        document.getElementById("temp").textContent = temp;
+        document.getElementById("hum").textContent = hum;
+
+        const tempThres = parseFloat(document.getElementById("tempThreshold").value);
+        const humThres = parseFloat(document.getElementById("humThreshold").value);
+
+        if (temp > tempThres || hum > humThres) {
+          document.getElementById("alert").style.display = "block";
+        } else {
+          document.getElementById("alert").style.display = "none";
+        }
+
       } catch (err) {
         console.error("Error fetching latest readings:", err);
       }
     }
 
     fetchLatestReadings();
-    setInterval(fetchLatestReadings, 5000);
+    setInterval(fetchLatestReadings, 5000); // update values every 5s
   </script>
 </body>
 </html>
