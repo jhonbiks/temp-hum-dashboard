@@ -7,7 +7,7 @@
     body {
       font-family: Arial, sans-serif;
       padding: 20px;
-      max-width: 900px;
+      max-width: 800px;
       margin: auto;
     }
 
@@ -16,77 +16,92 @@
     }
 
     .reading {
-      font-size: 1.6em;
+      font-size: 1.8em;
       margin-bottom: 20px;
     }
 
-    .chart-container {
+    #chart_temp, #chart_hum {
       margin-top: 30px;
     }
 
     .chart-title {
       font-size: 1.2em;
-      margin-bottom: 5px;
-      color: #333;
+      margin-top: 40px;
+      color: #444;
+    }
+
+    .qr-section {
+      text-align: center;
+      margin-top: 50px;
+    }
+
+    .qr-section img {
+      margin-top: 10px;
     }
   </style>
 
-  <!-- Load Google Charts -->
+  <!-- Google Charts Loader -->
   <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
   <script type="text/javascript">
-    google.charts.load('current', { packages: ['corechart'] });
+    google.charts.load('current', { 'packages': ['corechart'] });
     google.charts.setOnLoadCallback(drawCharts);
 
     function drawCharts() {
-      const sheetID = '15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU';
       const queryString = encodeURIComponent('SELECT A, B, C LIMIT 100');
+      const sheetID = '15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU';
       const query = new google.visualization.Query(
         `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?sheet=Data&tq=${queryString}`
       );
 
       query.send(function(response) {
         if (response.isError()) {
-          console.error('Error: ' + response.getMessage() + ' ' + response.getDetailedMessage());
+          console.error('Error fetching data: ' + response.getMessage());
           return;
         }
 
         const data = response.getDataTable();
 
         const tempData = new google.visualization.DataTable();
-        tempData.addColumn('datetime', 'Time');
+        tempData.addColumn('string', 'Time');
         tempData.addColumn('number', 'Temperature (°C)');
 
         const humData = new google.visualization.DataTable();
-        humData.addColumn('datetime', 'Time');
+        humData.addColumn('string', 'Time');
         humData.addColumn('number', 'Humidity (%)');
 
         for (let i = 0; i < data.getNumberOfRows(); i++) {
-          const time = new Date(data.getValue(i, 0));
-          tempData.addRow([time, data.getValue(i, 1)]);
-          humData.addRow([time, data.getValue(i, 2)]);
+          const time = data.getValue(i, 0);
+          const temp = data.getValue(i, 1);
+          const hum = data.getValue(i, 2);
+          tempData.addRow([time, temp]);
+          humData.addRow([time, hum]);
         }
 
-        const options = {
+        const optionsTemp = {
+          title: 'Temperature Over Time',
           curveType: 'function',
+          legend: { position: 'bottom' },
           height: 300,
-          chartArea: { width: '80%', height: '70%' },
-          hAxis: { title: 'Time', format: 'MM/dd HH:mm', gridlines: { color: '#ccc' } },
-          vAxis: { minValue: 0, gridlines: { color: '#eee' } },
-          pointSize: 4,
-          legend: { position: 'bottom' }
+          hAxis: { title: 'Time' },
+          vAxis: { title: 'Temperature (°C)' },
+          colors: ['#e67e22']
         };
 
-        new google.visualization.LineChart(document.getElementById('temp_chart')).draw(tempData, {
-          ...options,
-          colors: ['#e67e22'],
-          title: '📈 Temperature Over Time'
-        });
+        const optionsHum = {
+          title: 'Humidity Over Time',
+          curveType: 'function',
+          legend: { position: 'bottom' },
+          height: 300,
+          hAxis: { title: 'Time' },
+          vAxis: { title: 'Humidity (%)' },
+          colors: ['#3498db']
+        };
 
-        new google.visualization.LineChart(document.getElementById('hum_chart')).draw(humData, {
-          ...options,
-          colors: ['#3498db'],
-          title: '💧 Humidity Over Time'
-        });
+        const chartTemp = new google.visualization.LineChart(document.getElementById('chart_temp'));
+        const chartHum = new google.visualization.LineChart(document.getElementById('chart_hum'));
+
+        chartTemp.draw(tempData, optionsTemp);
+        chartHum.draw(humData, optionsHum);
       });
     }
   </script>
@@ -99,14 +114,20 @@
     <strong>Latest Humidity:</strong> <span id="hum">Loading...</span> %
   </div>
 
-  <div class="chart-container">
-    <div id="temp_chart"></div>
-  </div>
-  <div class="chart-container">
-    <div id="hum_chart"></div>
+  <div id="chart_temp"></div>
+  <div id="chart_hum"></div>
+
+  <!-- QR Code Section -->
+  <div class="qr-section">
+    <h2>📱 Access Logged Data</h2>
+    <p>Scan the QR code below to open the Google Sheet:</p>
+    <img
+      src="https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=https://docs.google.com/spreadsheets/d/15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU/edit?usp=sharing"
+      alt="QR code to open Google Sheet" />
   </div>
 
   <script>
+    // Pull latest row from published CSV version of sheet
     const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv';
 
     async function fetchLatestReadings() {
