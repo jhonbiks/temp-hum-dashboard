@@ -6,80 +6,87 @@
   <title>Smart Temp-Hum Dashboard</title>
   <style>
     body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #f4f7f9;
-      margin: 0;
+      font-family: Arial, sans-serif;
       padding: 20px;
-      color: #333;
-      max-width: 1000px;
+      max-width: 900px;
       margin: auto;
+      background: #f7f9fa;
+      color: #333;
     }
 
     h1 {
       color: #008080;
-      text-align: center;
-      margin-bottom: 10px;
     }
 
     .reading {
-      font-size: 1.5em;
-      text-align: center;
+      font-size: 1.6em;
       margin-bottom: 20px;
     }
 
-    .charts {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-    }
-
-    .chart-container {
-      background: #fff;
-      padding: 15px;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-
     .chart-title {
-      font-size: 1.1em;
-      margin-bottom: 8px;
-      text-align: center;
+      font-size: 1.2em;
+      margin-top: 30px;
       color: #444;
     }
 
+    #chart_temp, #chart_hum {
+      margin-top: 20px;
+    }
+
     .qr-section {
-      margin-top: 40px;
       text-align: center;
+      margin-top: 40px;
+      padding: 20px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .qr-section input[type="date"] {
+      padding: 8px;
+      margin: 5px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+
+    .qr-section button {
+      padding: 10px 16px;
+      font-size: 1em;
+      background: #3498db;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      margin-top: 10px;
+      cursor: pointer;
     }
 
     .qr-section a {
-      display: inline-block;
-      padding: 10px 20px;
-      background: #008080;
-      color: white;
+      font-size: 1.1em;
+      display: block;
+      margin-bottom: 10px;
+      color: #2c3e50;
       text-decoration: none;
-      border-radius: 8px;
-      font-size: 1em;
     }
 
-    @media (max-width: 768px) {
-      .charts {
-        grid-template-columns: 1fr;
-      }
+    .qr-section button:hover {
+      background: #2980b9;
     }
   </style>
+
+  <!-- Google Charts -->
   <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
   <script>
-    google.charts.load('current', { packages: ['corechart'] });
+    google.charts.load('current', { 'packages': ['corechart'] });
     google.charts.setOnLoadCallback(drawCharts);
 
     function drawCharts() {
+      const queryString = encodeURIComponent('SELECT A, B, C LIMIT 100');
       const sheetID = '15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU';
       const query = new google.visualization.Query(
-        `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?sheet=Data&tq=${encodeURIComponent('SELECT A, B, C LIMIT 100')}`
+        `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?sheet=Data&tq=${queryString}`
       );
 
-      query.send(function(response) {
+      query.send(function (response) {
         if (response.isError()) {
           console.error('Error fetching data:', response.getMessage());
           return;
@@ -97,80 +104,127 @@
 
         for (let i = 0; i < data.getNumberOfRows(); i++) {
           const time = data.getFormattedValue(i, 0);
-          const temp = data.getValue(i, 1);
-          const hum = data.getValue(i, 2);
-          tempData.addRow([time, temp]);
-          humData.addRow([time, hum]);
+          tempData.addRow([time, data.getValue(i, 1)]);
+          humData.addRow([time, data.getValue(i, 2)]);
         }
 
-        const tempOptions = {
-          title: '',
+        const optionsTemp = {
+          title: 'Temperature Over Time',
           curveType: 'function',
-          legend: { position: 'none' },
+          legend: { position: 'bottom' },
           height: 300,
           hAxis: { title: 'Time' },
-          vAxis: { title: '°C' },
+          vAxis: { title: 'Temperature (°C)' },
           colors: ['#e67e22']
         };
 
-        const humOptions = {
-          title: '',
+        const optionsHum = {
+          title: 'Humidity Over Time',
           curveType: 'function',
-          legend: { position: 'none' },
+          legend: { position: 'bottom' },
           height: 300,
           hAxis: { title: 'Time' },
-          vAxis: { title: '%' },
+          vAxis: { title: 'Humidity (%)' },
           colors: ['#3498db']
         };
 
-        new google.visualization.LineChart(document.getElementById('chart_temp')).draw(tempData, tempOptions);
-        new google.visualization.LineChart(document.getElementById('chart_hum')).draw(humData, humOptions);
+        new google.visualization.LineChart(document.getElementById('chart_temp')).draw(tempData, optionsTemp);
+        new google.visualization.LineChart(document.getElementById('chart_hum')).draw(humData, optionsHum);
       });
     }
+  </script>
+</head>
+<body>
+  <h1>🌡️ Smart Temperature & Humidity Dashboard</h1>
 
-    // Latest reading fetch
+  <div class="reading">
+    <strong>Latest Temperature:</strong> <span id="temp">Loading...</span> °C<br>
+    <strong>Latest Humidity:</strong> <span id="hum">Loading...</span> %
+  </div>
+
+  <div id="chart_temp"></div>
+  <div id="chart_hum"></div>
+
+  <!-- Data Access & CSV -->
+  <div class="qr-section">
+    <h2>📁 View or Download Logged Data</h2>
+    <a href="https://docs.google.com/spreadsheets/d/15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU/edit?usp=sharing" target="_blank">
+      📄 Open Google Sheet
+    </a>
+
+    <label><strong>Start Date:</strong></label>
+    <input type="date" id="startDate">
+    <label><strong>End Date:</strong></label>
+    <input type="date" id="endDate">
+    <br />
+    <button onclick="downloadCSVInRange()">⬇️ Download CSV for Range</button>
+  </div>
+
+  <script>
+    const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv';
+
     async function fetchLatestReadings() {
-      const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv';
       try {
         const res = await fetch(csvUrl);
         const csv = await res.text();
         const rows = csv.trim().split('\n');
         const lastRow = rows[rows.length - 1].split(',');
-        document.getElementById('temp').textContent = lastRow[1];
-        document.getElementById('hum').textContent = lastRow[2];
+
+        document.getElementById("temp").textContent = lastRow[1];
+        document.getElementById("hum").textContent = lastRow[2];
       } catch (err) {
-        console.error('Failed to fetch latest readings:', err);
+        console.error("Error fetching latest readings:", err);
+      }
+    }
+
+    async function downloadCSVInRange() {
+      const start = document.getElementById('startDate').value;
+      const end = document.getElementById('endDate').value;
+
+      if (!start || !end) {
+        alert('Please select both start and end dates.');
+        return;
+      }
+
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      endDate.setHours(23, 59, 59);
+
+      try {
+        const res = await fetch(csvUrl);
+        const csv = await res.text();
+        const rows = csv.trim().split('\n');
+        const header = rows[0];
+
+        const filteredRows = rows.filter((row, i) => {
+          if (i === 0) return true;
+          const cols = row.split(',');
+          const rowDate = new Date(cols[0]);
+          return !isNaN(rowDate) && rowDate >= startDate && rowDate <= endDate;
+        });
+
+        if (filteredRows.length <= 1) {
+          alert("No data found in the selected date range.");
+          return;
+        }
+
+        const csvContent = filteredRows.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `temp_hum_${start}_to_${end}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } catch (err) {
+        console.error("Error downloading CSV:", err);
       }
     }
 
     fetchLatestReadings();
-    setInterval(fetchLatestReadings, 10000);
+    setInterval(fetchLatestReadings, 10000); // Update every 10s
   </script>
-</head>
-<body>
-  <h1>🌡️ Smart Temp-Hum Dashboard</h1>
-
-  <div class="reading">
-    <strong>Temperature:</strong> <span id="temp">--</span> °C<br>
-    <strong>Humidity:</strong> <span id="hum">--</span> %
-  </div>
-
-  <div class="charts">
-    <div class="chart-container">
-      <div class="chart-title">Temperature Over Time</div>
-      <div id="chart_temp"></div>
-    </div>
-    <div class="chart-container">
-      <div class="chart-title">Humidity Over Time</div>
-      <div id="chart_hum"></div>
-    </div>
-  </div>
-
-  <div class="qr-section">
-    <h2>📁 View Full Data</h2>
-    <a href="https://docs.google.com/spreadsheets/d/15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU/edit?usp=sharing" target="_blank">
-      Open Google Sheet
-    </a>
-  </div>
 </body>
 </html>
