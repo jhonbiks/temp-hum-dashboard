@@ -1,152 +1,176 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Smart Temp-Hum Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Segoe UI', sans-serif;
+      background: #f4f7f9;
+      margin: 0;
       padding: 20px;
-      max-width: 800px;
+      color: #333;
+      max-width: 1000px;
       margin: auto;
     }
 
     h1 {
       color: #008080;
+      text-align: center;
+      margin-bottom: 10px;
     }
 
     .reading {
-      font-size: 1.8em;
+      font-size: 1.5em;
+      text-align: center;
       margin-bottom: 20px;
     }
 
-    #chart_temp, #chart_hum {
-      margin-top: 30px;
+    .charts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .chart-container {
+      background: #fff;
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
 
     .chart-title {
-      font-size: 1.2em;
-      margin-top: 40px;
+      font-size: 1.1em;
+      margin-bottom: 8px;
+      text-align: center;
       color: #444;
     }
 
-    .link-section {
+    .qr-section {
+      margin-top: 40px;
       text-align: center;
-      margin-top: 50px;
     }
 
-    .link-section a {
+    .qr-section a {
+      display: inline-block;
+      padding: 10px 20px;
+      background: #008080;
+      color: white;
       text-decoration: none;
-      font-size: 1.2em;
-      color: #008080;
+      border-radius: 8px;
+      font-size: 1em;
+    }
+
+    @media (max-width: 768px) {
+      .charts {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
-
-  <!-- Google Charts Loader -->
   <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-  <script type="text/javascript">
-    google.charts.load('current', { 'packages': ['corechart'] });
+  <script>
+    google.charts.load('current', { packages: ['corechart'] });
     google.charts.setOnLoadCallback(drawCharts);
 
     function drawCharts() {
-      const queryString = encodeURIComponent('SELECT A, B, C LIMIT 100');
       const sheetID = '15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU';
       const query = new google.visualization.Query(
-        `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?sheet=Data&tq=${queryString}`
+        `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?sheet=Data&tq=${encodeURIComponent('SELECT A, B, C LIMIT 100')}`
       );
 
       query.send(function(response) {
         if (response.isError()) {
-          console.error('Error fetching data: ' + response.getMessage());
+          console.error('Error fetching data:', response.getMessage());
           return;
         }
 
         const data = response.getDataTable();
 
         const tempData = new google.visualization.DataTable();
-        tempData.addColumn('datetime', 'Time');
+        tempData.addColumn('string', 'Time');
         tempData.addColumn('number', 'Temperature (°C)');
 
         const humData = new google.visualization.DataTable();
-        humData.addColumn('datetime', 'Time');
+        humData.addColumn('string', 'Time');
         humData.addColumn('number', 'Humidity (%)');
 
         for (let i = 0; i < data.getNumberOfRows(); i++) {
-          const time = data.getValue(i, 0); // datetime
+          const time = data.getFormattedValue(i, 0);
           const temp = data.getValue(i, 1);
           const hum = data.getValue(i, 2);
           tempData.addRow([time, temp]);
           humData.addRow([time, hum]);
         }
 
-        const optionsTemp = {
-          title: 'Temperature Over Time',
+        const tempOptions = {
+          title: '',
           curveType: 'function',
-          legend: { position: 'bottom' },
+          legend: { position: 'none' },
           height: 300,
-          hAxis: { title: 'Time', format: 'h:mm:ss a' },
-          vAxis: { title: 'Temperature (°C)' },
+          hAxis: { title: 'Time' },
+          vAxis: { title: '°C' },
           colors: ['#e67e22']
         };
 
-        const optionsHum = {
-          title: 'Humidity Over Time',
+        const humOptions = {
+          title: '',
           curveType: 'function',
-          legend: { position: 'bottom' },
+          legend: { position: 'none' },
           height: 300,
-          hAxis: { title: 'Time', format: 'h:mm:ss a' },
-          vAxis: { title: 'Humidity (%)' },
+          hAxis: { title: 'Time' },
+          vAxis: { title: '%' },
           colors: ['#3498db']
         };
 
-        const chartTemp = new google.visualization.LineChart(document.getElementById('chart_temp'));
-        const chartHum = new google.visualization.LineChart(document.getElementById('chart_hum'));
-
-        chartTemp.draw(tempData, optionsTemp);
-        chartHum.draw(humData, optionsHum);
+        new google.visualization.LineChart(document.getElementById('chart_temp')).draw(tempData, tempOptions);
+        new google.visualization.LineChart(document.getElementById('chart_hum')).draw(humData, humOptions);
       });
     }
-  </script>
-</head>
-<body>
-  <h1>🌡️ Smart Temperature & Humidity Dashboard</h1>
 
-  <div class="reading">
-    <strong>Latest Temperature:</strong> <span id="temp">Loading...</span> °C<br>
-    <strong>Latest Humidity:</strong> <span id="hum">Loading...</span> %
-  </div>
-
-  <div id="chart_temp"></div>
-  <div id="chart_hum"></div>
-
-  <!-- Link Section -->
-  <div class="link-section">
-    <h2>🔗 View Full Logged Data</h2>
-    <p><a href="https://docs.google.com/spreadsheets/d/15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU/edit?usp=sharing" target="_blank">
-      Open Google Sheet 📄
-    </a></p>
-  </div>
-
-  <script>
-    // Pull latest row from published CSV version of sheet
-    const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv';
-
+    // Latest reading fetch
     async function fetchLatestReadings() {
+      const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv';
       try {
         const res = await fetch(csvUrl);
         const csv = await res.text();
         const rows = csv.trim().split('\n');
         const lastRow = rows[rows.length - 1].split(',');
-
-        document.getElementById("temp").textContent = lastRow[1];
-        document.getElementById("hum").textContent = lastRow[2];
+        document.getElementById('temp').textContent = lastRow[1];
+        document.getElementById('hum').textContent = lastRow[2];
       } catch (err) {
-        console.error("Error fetching latest readings:", err);
+        console.error('Failed to fetch latest readings:', err);
       }
     }
 
     fetchLatestReadings();
-    setInterval(fetchLatestReadings, 10000); // update every 10s
+    setInterval(fetchLatestReadings, 10000);
   </script>
+</head>
+<body>
+  <h1>🌡️ Smart Temp-Hum Dashboard</h1>
+
+  <div class="reading">
+    <strong>Temperature:</strong> <span id="temp">--</span> °C<br>
+    <strong>Humidity:</strong> <span id="hum">--</span> %
+  </div>
+
+  <div class="charts">
+    <div class="chart-container">
+      <div class="chart-title">Temperature Over Time</div>
+      <div id="chart_temp"></div>
+    </div>
+    <div class="chart-container">
+      <div class="chart-title">Humidity Over Time</div>
+      <div id="chart_hum"></div>
+    </div>
+  </div>
+
+  <div class="qr-section">
+    <h2>📁 View Full Data</h2>
+    <a href="https://docs.google.com/spreadsheets/d/15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU/edit?usp=sharing" target="_blank">
+      Open Google Sheet
+    </a>
+  </div>
 </body>
 </html>
