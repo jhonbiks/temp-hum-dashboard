@@ -9,34 +9,29 @@
       padding: 20px;
       max-width: 900px;
       margin: auto;
-      background-color: #f9f9f9;
     }
 
     h1 {
       color: #008080;
-      text-align: center;
     }
 
     .reading {
       font-size: 1.6em;
-      text-align: center;
-      margin: 30px 0;
+      margin-bottom: 20px;
     }
 
     .chart-container {
-      margin: 40px 0;
+      margin-top: 30px;
     }
 
     .chart-title {
-      text-align: center;
-      font-weight: bold;
       font-size: 1.2em;
-      margin-bottom: 10px;
+      margin-bottom: 5px;
       color: #333;
     }
   </style>
 
-  <!-- Google Charts Loader -->
+  <!-- Load Google Charts -->
   <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
   <script type="text/javascript">
     google.charts.load('current', { packages: ['corechart'] });
@@ -45,62 +40,53 @@
     function drawCharts() {
       const sheetID = '15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU';
       const queryString = encodeURIComponent('SELECT A, B, C LIMIT 100');
-      const queryURL = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?sheet=Data1&tq=${queryString}`;
-      const query = new google.visualization.Query(queryURL);
+      const query = new google.visualization.Query(
+        `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?sheet=Data&tq=${queryString}`
+      );
 
       query.send(function(response) {
         if (response.isError()) {
-          console.error('Error fetching data: ' + response.getMessage());
+          console.error('Error: ' + response.getMessage() + ' ' + response.getDetailedMessage());
           return;
         }
 
         const data = response.getDataTable();
 
-        // Separate Temperature chart
         const tempData = new google.visualization.DataTable();
-        tempData.addColumn('string', 'Time');
+        tempData.addColumn('datetime', 'Time');
         tempData.addColumn('number', 'Temperature (°C)');
-        for (let i = 0; i < data.getNumberOfRows(); i++) {
-          tempData.addRow([data.getValue(i, 0), data.getValue(i, 1)]);
-        }
 
-        const tempOptions = {
-          title: '',
-          height: 300,
-          hAxis: { title: 'Time', slantedText: true, slantedTextAngle: 45 },
-          vAxis: { title: 'Temperature (°C)', minValue: 0 },
-          colors: ['#FF5733'],
-          pointSize: 4,
-          legend: 'none',
-          backgroundColor: '#fff',
-          chartArea: { width: '85%', height: '70%' }
-        };
-
-        const tempChart = new google.visualization.LineChart(document.getElementById('temp_chart'));
-        tempChart.draw(tempData, tempOptions);
-
-        // Separate Humidity chart
         const humData = new google.visualization.DataTable();
-        humData.addColumn('string', 'Time');
+        humData.addColumn('datetime', 'Time');
         humData.addColumn('number', 'Humidity (%)');
+
         for (let i = 0; i < data.getNumberOfRows(); i++) {
-          humData.addRow([data.getValue(i, 0), data.getValue(i, 2)]);
+          const time = new Date(data.getValue(i, 0));
+          tempData.addRow([time, data.getValue(i, 1)]);
+          humData.addRow([time, data.getValue(i, 2)]);
         }
 
-        const humOptions = {
-          title: '',
+        const options = {
+          curveType: 'function',
           height: 300,
-          hAxis: { title: 'Time', slantedText: true, slantedTextAngle: 45 },
-          vAxis: { title: 'Humidity (%)', minValue: 0 },
-          colors: ['#1E90FF'],
+          chartArea: { width: '80%', height: '70%' },
+          hAxis: { title: 'Time', format: 'MM/dd HH:mm', gridlines: { color: '#ccc' } },
+          vAxis: { minValue: 0, gridlines: { color: '#eee' } },
           pointSize: 4,
-          legend: 'none',
-          backgroundColor: '#fff',
-          chartArea: { width: '85%', height: '70%' }
+          legend: { position: 'bottom' }
         };
 
-        const humChart = new google.visualization.LineChart(document.getElementById('hum_chart'));
-        humChart.draw(humData, humOptions);
+        new google.visualization.LineChart(document.getElementById('temp_chart')).draw(tempData, {
+          ...options,
+          colors: ['#e67e22'],
+          title: '📈 Temperature Over Time'
+        });
+
+        new google.visualization.LineChart(document.getElementById('hum_chart')).draw(humData, {
+          ...options,
+          colors: ['#3498db'],
+          title: '💧 Humidity Over Time'
+        });
       });
     }
   </script>
@@ -114,17 +100,13 @@
   </div>
 
   <div class="chart-container">
-    <div class="chart-title">📊 Temperature Over Time</div>
     <div id="temp_chart"></div>
   </div>
-
   <div class="chart-container">
-    <div class="chart-title">💧 Humidity Over Time</div>
     <div id="hum_chart"></div>
   </div>
 
   <script>
-    // Fetch the latest row for display
     const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv';
 
     async function fetchLatestReadings() {
