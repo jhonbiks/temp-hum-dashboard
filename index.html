@@ -73,7 +73,7 @@
   </div>
 
   <h2>📊 Trend Visualization</h2>
-  <iframe src="https://docs.google.com/spreadsheets/d/e/YOUR_GOOGLE_SHEET_EMBED_URL/pubchart?oid=YOUR_OID&format=interactive"></iframe>
+  <iframe src="https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv"></iframe>
 
   <h2>⚙️ Update Thresholds</h2>
   <form id="thresholdForm">
@@ -115,7 +115,7 @@
         jsonData[key] = parseFloat(value);
       }
 
-      fetch("https://script.google.com/macros/s/YOUR_DEPLOYED_SCRIPT_URL/exec", {
+      fetch("https://script.google.com/macros/s/AKfycbzAwbJF-2ePRBOdGfBICTG50xJFMkygAbhTwrogNeeMOQNHLc3hM07-8IoSGsD6IBsb/exec", {
         method: "POST",
         body: JSON.stringify(jsonData),
         headers: { "Content-Type": "application/json" }
