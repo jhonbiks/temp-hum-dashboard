@@ -221,7 +221,7 @@
       tempThreshold = parseFloat(document.getElementById("tempThreshold").value);
       humThreshold = parseFloat(document.getElementById("humThreshold").value);
 
-      const esp32IP = "http://192.168.1.123"; // Replace with your actual static IP
+      const esp32IP = "http://192.168.1.150"; // Replace with your actual static IP
       const url = `${esp32IP}/set_thresholds?temp=${tempThreshold}&hum=${humThreshold}`;
 
       fetch(url)
