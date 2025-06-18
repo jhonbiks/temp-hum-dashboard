@@ -1,122 +1,133 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Smart Temp & Hum Dashboard</title>
-  <script src="https://www.gstatic.com/charts/loader.js"></script>
+  <title>Smart Temp-Hum Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
       font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 0;
       padding: 20px;
+      max-width: 700px;
+      margin: auto;
     }
-    #charts {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-around;
+
+    h1 {
+      color: #008080;
     }
-    .chart-container {
-      width: 45%;
-      min-width: 300px;
-      height: 300px;
-      margin: 20px 0;
+
+    .reading {
+      font-size: 2em;
+      margin-bottom: 20px;
     }
-    input { margin: 5px; padding: 5px; width: 100px; }
-    button { padding: 5px 15px; }
+
+    iframe {
+      width: 100%;
+      height: 400px;
+      border: none;
+    }
+
+    form {
+      background-color: #f5f5f5;
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 40px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 10px;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      padding: 8px;
+      font-size: 1em;
+      margin-top: 4px;
+    }
+
+    button {
+      margin-top: 10px;
+      padding: 10px 15px;
+      background-color: #008080;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #006666;
+    }
+
+    #statusMsg {
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
-  <h1>Smart Temp & Hum Dashboard</h1>
-  <p><strong>Latest Temperature:</strong> <span id="latestTemp">--</span> °C</p>
-  <p><strong>Latest Humidity:</strong> <span id="latestHum">--</span> %</p>
+  <h1>🌡️ Smart Temperature & Humidity Dashboard</h1>
 
-  <div id="charts">
-    <div id="chart_temp" class="chart-container"></div>
-    <div id="chart_hum" class="chart-container"></div>
+  <div class="reading">
+    <strong>Latest Temperature:</strong> <span id="temp">Loading...</span> °C<br>
+    <strong>Latest Humidity:</strong> <span id="hum">Loading...</span> %
   </div>
 
-  <h2>Set Thresholds</h2>
+  <h2>📊 Trend Visualization</h2>
+  <iframe src="https://docs.google.com/spreadsheets/d/e/YOUR_GOOGLE_SHEET_EMBED_URL/pubchart?oid=YOUR_OID&format=interactive"></iframe>
+
+  <h2>⚙️ Update Thresholds</h2>
   <form id="thresholdForm">
-    <input type="number" id="tempThreshold" step="0.1" placeholder="Temp Threshold">
-    <input type="number" id="humThreshold" step="0.1" placeholder="Hum Threshold">
-    <button type="submit">Update Thresholds</button>
+    <label>Min Temp (°C):
+      <input type="number" name="tempMin" step="0.1" required>
+    </label>
+    <label>Max Temp (°C):
+      <input type="number" name="tempMax" step="0.1" required>
+    </label>
+    <label>Min Humidity (%):
+      <input type="number" name="humMin" step="0.1">
+    </label>
+    <label>Max Humidity (%):
+      <input type="number" name="humMax" step="0.1">
+    </label>
+    <button type="submit">✅ Submit Thresholds</button>
   </form>
+  <p id="statusMsg" style="color:green; font-weight:bold;"></p>
 
   <script>
-    const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv';
-    const updateUrl = 'https://script.google.com/macros/s/AKfycbzAwbJF-2ePRBOdGfBICTG50xJFMkygAbhTwrogNeeMOQNHLc3hM07-8IoSGsD6IBsb/exec';
+    // Fetch latest readings from your Google Sheet (via Google Visualization API or similar)
+    // For now, we simulate values:
+    function fetchLatestReadings() {
+      // Simulated data (replace with real-time fetch code or connect to a JSON source)
+      document.getElementById("temp").textContent = "25.3";
+      document.getElementById("hum").textContent = "48.6";
+    }
 
-    let tempThreshold = 30, humThreshold = 80;
+    fetchLatestReadings(); // Initial call
+    setInterval(fetchLatestReadings, 10000); // Update every 10 seconds
 
-    google.charts.load('current', { packages: ['corechart'] });
-    google.charts.setOnLoadCallback(fetchAndDraw);
-    setInterval(fetchAndDraw, 60000);
-
-    document.getElementById("thresholdForm").addEventListener("submit", async e => {
+    // Handle threshold form submission
+    document.getElementById("thresholdForm").addEventListener("submit", function(e) {
       e.preventDefault();
-      tempThreshold = parseFloat(document.getElementById("tempThreshold").value);
-      humThreshold = parseFloat(document.getElementById("humThreshold").value);
-      try {
-        const res = await fetch(`${updateUrl}?temp=${tempThreshold}&hum=${humThreshold}`);
-        alert(`Response: ${await res.text()}`);
-        fetchAndDraw();
-      } catch {
-        alert('❌ Failed to update thresholds');
+
+      const form = new FormData(e.target);
+      const jsonData = {};
+      for (const [key, value] of form.entries()) {
+        jsonData[key] = parseFloat(value);
       }
+
+      fetch("https://script.google.com/macros/s/YOUR_DEPLOYED_SCRIPT_URL/exec", {
+        method: "POST",
+        body: JSON.stringify(jsonData),
+        headers: { "Content-Type": "application/json" }
+      })
+      .then(res => res.text())
+      .then(response => {
+        document.getElementById("statusMsg").textContent = "✅ Thresholds updated!";
+      })
+      .catch(err => {
+        document.getElementById("statusMsg").textContent = "❌ Failed to update: " + err;
+      });
     });
-
-    function parseCSV(data) {
-      const lines = data.trim().split('\n');
-      const headers = lines[0].split(',');
-      return lines.slice(1).map(line => {
-        const v = line.split(',');
-        const o = {};
-        headers.forEach((h,i) => o[h.trim()] = v[i]?.trim());
-        return o;
-      });
-    }
-
-    async function fetchAndDraw() {
-      try {
-        const csv = await (await fetch(sheetUrl)).text();
-        const rows = parseCSV(csv);
-        if (!rows.length) throw 'empty';
-
-        const latest = rows[rows.length - 1];
-        document.getElementById("latestTemp").textContent = latest.temp;
-        document.getElementById("latestHum").textContent = latest.hum;
-
-        drawChart(rows, 'temp', '#e67e22', 'Temperature (°C)', tempThreshold, 'chart_temp');
-        drawChart(rows, 'hum', '#3498db', 'Humidity (%)', humThreshold, 'chart_hum');
-      } catch (e) {
-        console.error('Error loading data', e);
-      }
-    }
-
-    function drawChart(rows, key, color, ylabel, threshold, containerId) {
-      const data = new google.visualization.DataTable();
-      data.addColumn('datetime', 'Time');
-      data.addColumn('number', ylabel);
-      data.addColumn('number', 'Threshold');
-
-      rows.forEach(r => {
-        const t = new Date(r.time);
-        const v = parseFloat(r[key]);
-        data.addRow([t, v, threshold]);
-      });
-
-      const options = {
-        title: ylabel + ' Over Time',
-        hAxis:{format:'h:mm a'},
-        vAxis:{title: ylabel},
-        colors: [color, 'red'],
-        legend:{position:'bottom'},
-        series:{1:{type:'line',lineDashStyle:[4,4],visibleInLegend:false}},
-        annotations:{textStyle:{fontSize:0}}
-      };
-
-      new google.visualization.LineChart(document.getElementById(containerId)).draw(data, options);
-    }
   </script>
 </body>
 </html>
