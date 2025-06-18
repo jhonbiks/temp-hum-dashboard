@@ -98,4 +98,80 @@
 
       query.send(function (response) {
         if (response.isError()) {
-          console.error('Error fe
+          console.error('Error fetching data: ' + response.getMessage());
+          return;
+        }
+
+        const data = response.getDataTable();
+        const rows = [];
+
+        for (let i = 0; i < data.getNumberOfRows(); i++) {
+          rows.push({
+            time: data.getValue(i, 0),
+            temp: data.getValue(i, 1),
+            hum: data.getValue(i, 2)
+          });
+        }
+
+        rows.reverse();
+
+        const tempData = new google.visualization.DataTable();
+        const humData = new google.visualization.DataTable();
+        tempData.addColumn('datetime', 'Time');
+        tempData.addColumn('number', 'Temperature');
+        humData.addColumn('datetime', 'Time');
+        humData.addColumn('number', 'Humidity');
+
+        rows.forEach(r => {
+          tempData.addRow([new Date(r.time), r.temp]);
+          humData.addRow([new Date(r.time), r.hum]);
+        });
+
+        const optionsTemp = {
+          title: 'Temperature Over Time',
+          height: 300,
+          hAxis: { title: 'Time', format: 'h:mm:ss a' },
+          vAxis: { title: 'Temperature (°C)' },
+          colors: ['#e67e22'],
+          curveType: 'function',
+          legend: { position: 'bottom' },
+          animation: { duration: 300, easing: 'linear', startup: true }
+        };
+
+        const optionsHum = {
+          title: 'Humidity Over Time',
+          height: 300,
+          hAxis: { title: 'Time', format: 'h:mm:ss a' },
+          vAxis: { title: 'Humidity (%)' },
+          colors: ['#3498db'],
+          curveType: 'function',
+          legend: { position: 'bottom' },
+          animation: { duration: 300, easing: 'linear', startup: true }
+        };
+
+        chartTemp.draw(tempData, optionsTemp);
+        chartHum.draw(humData, optionsHum);
+      });
+    }
+
+    // Fetch latest value for numeric display
+    const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv';
+
+    async function fetchLatestReadings() {
+      try {
+        const res = await fetch(csvUrl);
+        const csv = await res.text();
+        const rows = csv.trim().split('\n');
+        const lastRow = rows[rows.length - 1].split(',');
+        document.getElementById("temp").textContent = lastRow[1];
+        document.getElementById("hum").textContent = lastRow[2];
+      } catch (err) {
+        console.error("Error fetching latest readings:", err);
+      }
+    }
+
+    fetchLatestReadings();
+    setInterval(fetchLatestReadings, 5000);
+  </script>
+</body>
+</html>
