@@ -10,28 +10,34 @@
       max-width: 900px;
       margin: auto;
     }
+
     h1 {
       color: #008080;
       text-align: center;
     }
+
     .reading {
       font-size: 1.5em;
       text-align: center;
       margin-bottom: 20px;
     }
+
     .alert {
       color: red;
       font-weight: bold;
     }
+
     .thresholds {
       margin: 20px 0;
       text-align: center;
     }
+
     .thresholds input {
       padding: 5px;
       width: 60px;
       margin: 0 10px;
     }
+
     .thresholds button {
       padding: 6px 12px;
       background: #008080;
@@ -40,13 +46,16 @@
       border-radius: 4px;
       cursor: pointer;
     }
+
     #chart_temp, #chart_hum {
       margin-top: 30px;
     }
+
     .button-section, .qr-section {
       text-align: center;
       margin-top: 40px;
     }
+
     .download-btn {
       background-color: #008080;
       color: white;
@@ -55,6 +64,7 @@
       border-radius: 6px;
       font-size: 1em;
     }
+
     .qr-section a {
       color: #008080;
       text-decoration: underline;
@@ -100,18 +110,9 @@
 
     let chartTemp, chartHum;
     const rowLimit = 50;
-    let esp32IP;
 
-    // Load IP and thresholds from localStorage
-    window.onload = () => {
-      esp32IP = localStorage.getItem("esp32IP") || prompt("Enter ESP32 IP:", "http://10.0.247.14");
-      localStorage.setItem("esp32IP", esp32IP);
-
-      const temp = localStorage.getItem("tempThreshold");
-      const hum = localStorage.getItem("humThreshold");
-      if (temp) document.getElementById("tempThreshold").value = temp;
-      if (hum) document.getElementById("humThreshold").value = hum;
-    };
+    let tempThreshold = parseFloat(document.getElementById("tempThreshold").value);
+    let humThreshold = parseFloat(document.getElementById("humThreshold").value);
 
     function initDashboard() {
       chartTemp = new google.visualization.LineChart(document.getElementById('chart_temp'));
@@ -138,7 +139,7 @@
 
         for (let i = 0; i < data.getNumberOfRows(); i++) {
           rows.push({
-            time: new Date(data.getValue(i, 0)),
+            time: data.getValue(i, 0),
             temp: data.getValue(i, 1),
             hum: data.getValue(i, 2)
           });
@@ -156,9 +157,6 @@
         humData.addColumn('number', 'Humidity');
         humData.addColumn({ type: 'number', role: 'annotation' });
 
-        const tempThreshold = parseFloat(document.getElementById("tempThreshold").value);
-        const humThreshold = parseFloat(document.getElementById("humThreshold").value);
-
         rows.forEach(r => {
           tempData.addRow([r.time, r.temp, tempThreshold]);
           humData.addRow([r.time, r.hum, humThreshold]);
@@ -172,6 +170,7 @@
           colors: ['#e67e22'],
           legend: { position: 'bottom' },
           series: {
+            0: { targetAxisIndex: 0 },
             1: { type: 'line', color: 'red', lineDashStyle: [4, 4], visibleInLegend: false }
           }
         };
@@ -184,6 +183,7 @@
           colors: ['#3498db'],
           legend: { position: 'bottom' },
           series: {
+            0: { targetAxisIndex: 0 },
             1: { type: 'line', color: 'red', lineDashStyle: [4, 4], visibleInLegend: false }
           }
         };
@@ -204,9 +204,6 @@
         const latestTemp = parseFloat(lastRow[1]);
         const latestHum = parseFloat(lastRow[2]);
 
-        const tempThreshold = parseFloat(document.getElementById("tempThreshold").value);
-        const humThreshold = parseFloat(document.getElementById("humThreshold").value);
-
         document.getElementById("temp").textContent = latestTemp;
         document.getElementById("hum").textContent = latestHum;
 
@@ -221,22 +218,17 @@
     setInterval(fetchLatestReadings, 5000);
 
     function sendThresholds() {
-      const tempThreshold = parseFloat(document.getElementById("tempThreshold").value);
-      const humThreshold = parseFloat(document.getElementById("humThreshold").value);
+      tempThreshold = parseFloat(document.getElementById("tempThreshold").value);
+      humThreshold = parseFloat(document.getElementById("humThreshold").value);
 
-      localStorage.setItem("tempThreshold", tempThreshold);
-      localStorage.setItem("humThreshold", humThreshold);
-
-      const url = `${esp32IP}/updateThresholds?temp=${tempThreshold}&hum=${humThreshold}`;
+      const scriptUrl = "https://script.google.com/macros/s/AKfycbzAwbJF-2ePRBOdGfBICTG50xJFMkygAbhTwrogNeeMOQNHLc3hM07-8IoSGsD6IBsb/exec";
+      const url = `${scriptUrl}?temp=${tempThreshold}&hum=${humThreshold}`;
 
       fetch(url)
-        .then(res => {
-          if (!res.ok) throw new Error("ESP32 not reachable");
-          alert("✅ Thresholds sent to ESP32");
-        })
-        .catch(err => alert("❌ Failed to send thresholds to ESP32: " + err.message));
+        .then(res => res.text())
+        .then(data => alert("Response from Google Script:\n" + data))
+        .catch(err => alert("Failed to contact script: " + err.message));
     }
   </script>
 </body>
 </html>
-s
