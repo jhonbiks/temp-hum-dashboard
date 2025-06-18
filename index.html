@@ -22,13 +22,38 @@
       margin-bottom: 20px;
     }
 
+    .alert {
+      color: red;
+      font-weight: bold;
+    }
+
+    .thresholds {
+      margin: 20px 0;
+      text-align: center;
+    }
+
+    .thresholds input {
+      padding: 5px;
+      width: 60px;
+      margin: 0 10px;
+    }
+
+    .thresholds button {
+      padding: 6px 12px;
+      background: #008080;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
     #chart_temp, #chart_hum {
       margin-top: 30px;
     }
 
-    .button-section, .qr-section, .thresholds {
+    .button-section, .qr-section {
       text-align: center;
-      margin-top: 30px;
+      margin-top: 40px;
     }
 
     .download-btn {
@@ -44,52 +69,28 @@
       color: #008080;
       text-decoration: underline;
     }
-
-    .thresholds input {
-      margin: 0 10px;
-      padding: 5px;
-      width: 80px;
-    }
-
-    #alert {
-      color: white;
-      background-color: red;
-      text-align: center;
-      padding: 10px;
-      margin-top: 20px;
-      display: none;
-      font-weight: bold;
-    }
-
-    @media (max-width: 600px) {
-      .reading {
-        font-size: 1.2em;
-      }
-    }
   </style>
 
-  <!-- Google Charts -->
   <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 </head>
 <body>
   <h1>🌡️ Smart Temperature & Humidity Dashboard</h1>
 
   <div class="reading">
-    <strong>Latest Temperature:</strong> <span id="temp">Loading...</span> °C<br>
-    <strong>Latest Humidity:</strong> <span id="hum">Loading...</span> %
+    <strong>Latest Temperature:</strong>
+    <span id="temp">Loading...</span> °C
+    <span id="tempAlert" class="alert"></span><br>
+
+    <strong>Latest Humidity:</strong>
+    <span id="hum">Loading...</span> %
+    <span id="humAlert" class="alert"></span>
   </div>
 
   <div class="thresholds">
-    <h3>Set Thresholds</h3>
-    <label>Temp Threshold (°C):
-      <input type="number" id="tempThreshold" value="30" step="0.1">
-    </label>
-    <label>Humidity Threshold (%):
-      <input type="number" id="humThreshold" value="70" step="0.1">
-    </label>
+    <label>Temp Threshold: <input type="number" id="tempThreshold" value="30"></label>
+    <label>Hum Threshold: <input type="number" id="humThreshold" value="60"></label>
+    <button onclick="sendThresholds()">Set Thresholds</button>
   </div>
-
-  <div id="alert">⚠️ Threshold exceeded!</div>
 
   <div id="chart_temp"></div>
   <div id="chart_hum"></div>
@@ -103,18 +104,21 @@
     <p><a href="https://docs.google.com/spreadsheets/d/15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU/edit?usp=sharing" target="_blank">Open in Google Sheets</a></p>
   </div>
 
-  <script type="text/javascript">
+  <script>
     google.charts.load('current', { 'packages': ['corechart'] });
     google.charts.setOnLoadCallback(initDashboard);
 
     let chartTemp, chartHum;
     const rowLimit = 50;
 
+    let tempThreshold = parseFloat(document.getElementById("tempThreshold").value);
+    let humThreshold = parseFloat(document.getElementById("humThreshold").value);
+
     function initDashboard() {
       chartTemp = new google.visualization.LineChart(document.getElementById('chart_temp'));
       chartHum = new google.visualization.LineChart(document.getElementById('chart_hum'));
       fetchAndDraw();
-      setInterval(fetchAndDraw, 10000); // graph every 10s
+      setInterval(fetchAndDraw, 10000);
     }
 
     function fetchAndDraw() {
@@ -124,7 +128,7 @@
         `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?sheet=Data&tq=${queryString}`
       );
 
-      query.send(function (response) {
+      query.send(response => {
         if (response.isError()) {
           console.error('Error fetching data: ' + response.getMessage());
           return;
@@ -147,35 +151,27 @@
         const humData = new google.visualization.DataTable();
         tempData.addColumn('datetime', 'Time');
         tempData.addColumn('number', 'Temperature');
+        tempData.addColumn({ type: 'number', role: 'annotation' });
+
         humData.addColumn('datetime', 'Time');
         humData.addColumn('number', 'Humidity');
+        humData.addColumn({ type: 'number', role: 'annotation' });
 
         rows.forEach(r => {
-          tempData.addRow([r.time, r.temp]);
-          humData.addRow([r.time, r.hum]);
+          tempData.addRow([r.time, r.temp, tempThreshold]);
+          humData.addRow([r.time, r.hum, humThreshold]);
         });
-
-        const tempThres = parseFloat(document.getElementById("tempThreshold").value);
-        const humThres = parseFloat(document.getElementById("humThreshold").value);
 
         const optionsTemp = {
           title: 'Temperature Over Time',
           height: 300,
           hAxis: { title: 'Time', format: 'h:mm:ss a' },
-          vAxis: {
-            title: 'Temperature (°C)',
-            viewWindow: { min: 0 }
-          },
+          vAxis: { title: 'Temperature (°C)', viewWindow: { min: 0 } },
           colors: ['#e67e22'],
-          curveType: 'function',
           legend: { position: 'bottom' },
           series: {
-            0: {}
-          },
-          vAxes: {
-            0: {
-              gridlines: { color: '#ccc' }
-            }
+            0: { targetAxisIndex: 0 },
+            1: { type: 'line', color: 'red', lineDashStyle: [4, 4], visibleInLegend: false }
           }
         };
 
@@ -183,13 +179,13 @@
           title: 'Humidity Over Time',
           height: 300,
           hAxis: { title: 'Time', format: 'h:mm:ss a' },
-          vAxis: {
-            title: 'Humidity (%)',
-            viewWindow: { min: 0 }
-          },
+          vAxis: { title: 'Humidity (%)', viewWindow: { min: 0 } },
           colors: ['#3498db'],
-          curveType: 'function',
-          legend: { position: 'bottom' }
+          legend: { position: 'bottom' },
+          series: {
+            0: { targetAxisIndex: 0 },
+            1: { type: 'line', color: 'red', lineDashStyle: [4, 4], visibleInLegend: false }
+          }
         };
 
         chartTemp.draw(tempData, optionsTemp);
@@ -205,29 +201,36 @@
         const csv = await res.text();
         const rows = csv.trim().split('\n');
         const lastRow = rows[rows.length - 1].split(',');
+        const latestTemp = parseFloat(lastRow[1]);
+        const latestHum = parseFloat(lastRow[2]);
 
-        const temp = parseFloat(lastRow[1]);
-        const hum = parseFloat(lastRow[2]);
+        document.getElementById("temp").textContent = latestTemp;
+        document.getElementById("hum").textContent = latestHum;
 
-        document.getElementById("temp").textContent = temp;
-        document.getElementById("hum").textContent = hum;
-
-        const tempThres = parseFloat(document.getElementById("tempThreshold").value);
-        const humThres = parseFloat(document.getElementById("humThreshold").value);
-
-        if (temp > tempThres || hum > humThres) {
-          document.getElementById("alert").style.display = "block";
-        } else {
-          document.getElementById("alert").style.display = "none";
-        }
-
+        document.getElementById("tempAlert").textContent = latestTemp > tempThreshold ? "⚠️ Too Hot!" : "";
+        document.getElementById("humAlert").textContent = latestHum > humThreshold ? "⚠️ Too Humid!" : "";
       } catch (err) {
         console.error("Error fetching latest readings:", err);
       }
     }
 
     fetchLatestReadings();
-    setInterval(fetchLatestReadings, 5000); // update values every 5s
+    setInterval(fetchLatestReadings, 5000);
+
+    function sendThresholds() {
+      tempThreshold = parseFloat(document.getElementById("tempThreshold").value);
+      humThreshold = parseFloat(document.getElementById("humThreshold").value);
+
+      const esp32IP = "http://192.168.1.123"; // Replace with your actual static IP
+      const url = `${esp32IP}/set_thresholds?temp=${tempThreshold}&hum=${humThreshold}`;
+
+      fetch(url)
+        .then(res => {
+          if (!res.ok) throw new Error("ESP32 not reachable");
+          alert("Thresholds sent to ESP32");
+        })
+        .catch(err => alert("Failed to send thresholds to ESP32: " + err.message));
+    }
   </script>
 </body>
 </html>
