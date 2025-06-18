@@ -26,7 +26,7 @@
     }
     label {
       display: inline-block;
-      width: 160px;
+      width: 200px;
     }
     input {
       padding: 5px;
@@ -54,14 +54,14 @@
   </div>
 
   <div>
-    <h3>Set Thresholds</h3>
+    <h3>Set Thresholds (Send to Google Apps Script)</h3>
     <label for="tempThreshold">Temperature Threshold (°C):</label>
     <input type="number" id="tempThreshold" step="0.1"><br>
 
     <label for="humThreshold">Humidity Threshold (%):</label>
     <input type="number" id="humThreshold" step="0.1"><br>
 
-    <button onclick="sendThresholds()">Send to ESP32</button>
+    <button onclick="sendThresholds()">Send to Apps Script</button>
     <p id="statusMsg"></p>
   </div>
 
@@ -121,21 +121,21 @@
     function sendThresholds() {
       const temp = document.getElementById('tempThreshold').value;
       const hum = document.getElementById('humThreshold').value;
-      const esp32IP = 'http://10.0.247.14'; // Your ESP32's local IP
-      const url = `${esp32IP}/updateThresholds?temp=${temp}&hum=${hum}`;
+      const scriptURL = 'https://script.google.com/macros/library/d/1ujjf1uiw6_MJOElGmlP59wpXYdjvQeUz8rXuO_2Z_MXWvyw46rwBVLnt/1';
+      const url = `${scriptURL}?temp=${temp}&hum=${hum}`;
 
-      fetch(url)
+      fetch(url, { method: 'POST' })
         .then(response => {
           if (response.ok) {
-            document.getElementById('statusMsg').textContent = 'Thresholds updated successfully!';
+            document.getElementById('statusMsg').textContent = '✅ Thresholds saved to Google Apps Script!';
             localStorage.setItem('tempThreshold', temp);
             localStorage.setItem('humThreshold', hum);
           } else {
-            throw new Error('ESP32 did not respond.');
+            throw new Error('Failed to save to Apps Script');
           }
         })
         .catch(error => {
-          document.getElementById('statusMsg').textContent = 'Failed to send thresholds: ' + error.message;
+          document.getElementById('statusMsg').textContent = '❌ Error: ' + error.message;
         });
     }
 
@@ -146,7 +146,7 @@
       if (hum) document.getElementById('humThreshold').value = hum;
     });
 
-    setInterval(drawCharts, 60000); // Refresh every minute
+    setInterval(drawCharts, 60000); // Refresh every 60 seconds
   </script>
 </body>
 </html>
