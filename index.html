@@ -10,18 +10,19 @@
       margin: 0;
       padding: 20px;
     }
-    #chart_div {
-      width: 100%;
-      height: 500px;
+    #charts {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-around;
     }
-    input {
-      margin: 5px;
-      padding: 5px;
-      width: 100px;
+    .chart-container {
+      width: 45%;
+      min-width: 300px;
+      height: 300px;
+      margin: 20px 0;
     }
-    button {
-      padding: 5px 15px;
-    }
+    input { margin: 5px; padding: 5px; width: 100px; }
+    button { padding: 5px 15px; }
   </style>
 </head>
 <body>
@@ -29,7 +30,10 @@
   <p><strong>Latest Temperature:</strong> <span id="latestTemp">--</span> °C</p>
   <p><strong>Latest Humidity:</strong> <span id="latestHum">--</span> %</p>
 
-  <div id="chart_div"></div>
+  <div id="charts">
+    <div id="chart_temp" class="chart-container"></div>
+    <div id="chart_hum" class="chart-container"></div>
+  </div>
 
   <h2>Set Thresholds</h2>
   <form id="thresholdForm">
@@ -42,25 +46,22 @@
     const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv';
     const updateUrl = 'https://script.google.com/macros/s/AKfycbzAwbJF-2ePRBOdGfBICTG50xJFMkygAbhTwrogNeeMOQNHLc3hM07-8IoSGsD6IBsb/exec';
 
-    let tempThreshold = 30;
-    let humThreshold = 80;
+    let tempThreshold = 30, humThreshold = 80;
 
     google.charts.load('current', { packages: ['corechart'] });
     google.charts.setOnLoadCallback(fetchAndDraw);
+    setInterval(fetchAndDraw, 60000);
 
-    document.getElementById("thresholdForm").addEventListener("submit", async function(e) {
+    document.getElementById("thresholdForm").addEventListener("submit", async e => {
       e.preventDefault();
       tempThreshold = parseFloat(document.getElementById("tempThreshold").value);
       humThreshold = parseFloat(document.getElementById("humThreshold").value);
-
-      const updateParams = `?temp=${tempThreshold}&hum=${humThreshold}`;
       try {
-        const res = await fetch(updateUrl + updateParams);
-        const msg = await res.text();
-        alert("✅ Thresholds updated: " + msg);
-        fetchAndDraw(); // refresh chart
-      } catch (err) {
-        alert("❌ Failed to update thresholds");
+        const res = await fetch(`${updateUrl}?temp=${tempThreshold}&hum=${humThreshold}`);
+        alert(`Response: ${await res.text()}`);
+        fetchAndDraw();
+      } catch {
+        alert('❌ Failed to update thresholds');
       }
     });
 
@@ -68,73 +69,54 @@
       const lines = data.trim().split('\n');
       const headers = lines[0].split(',');
       return lines.slice(1).map(line => {
-        const values = line.split(',');
-        const obj = {};
-        headers.forEach((h, i) => {
-          obj[h.trim()] = values[i] ? values[i].trim() : '';
-        });
-        return obj;
+        const v = line.split(',');
+        const o = {};
+        headers.forEach((h,i) => o[h.trim()] = v[i]?.trim());
+        return o;
       });
     }
 
     async function fetchAndDraw() {
       try {
-        const response = await fetch(sheetUrl);
-        const csv = await response.text();
+        const csv = await (await fetch(sheetUrl)).text();
         const rows = parseCSV(csv);
-
-        if (!rows.length) throw new Error("No data");
+        if (!rows.length) throw 'empty';
 
         const latest = rows[rows.length - 1];
         document.getElementById("latestTemp").textContent = latest.temp;
         document.getElementById("latestHum").textContent = latest.hum;
 
-        const data = new google.visualization.DataTable();
-        data.addColumn('datetime', 'Time');
-        data.addColumn('number', 'Temp');
-        data.addColumn('number', 'Hum');
-
-        rows.forEach(row => {
-          const time = new Date(row.time);
-          data.addRow([time, parseFloat(row.temp), parseFloat(row.hum)]);
-        });
-
-        const options = {
-          title: 'Temperature & Humidity Over Time',
-          curveType: 'function',
-          legend: { position: 'bottom' },
-          hAxis: { title: 'Time' },
-          vAxis: {
-            title: 'Value',
-            viewWindow: {
-              min: 0,
-              max: 100
-            }
-          },
-          series: {
-            0: { targetAxisIndex: 0 },
-            1: { targetAxisIndex: 0 }
-          },
-          annotations: {
-            textStyle: {
-              fontSize: 0, // hide number annotations
-            }
-          },
-          trendlines: {},
-          enableInteractivity: true
-        };
-
-        const chart = new google.visualization.LineChart(document.getElementById('chart_div'));
-
-        const view = new google.visualization.DataView(data);
-        chart.draw(view, options);
-
-      } catch (error) {
-        console.error("❌ Error:", error);
+        drawChart(rows, 'temp', '#e67e22', 'Temperature (°C)', tempThreshold, 'chart_temp');
+        drawChart(rows, 'hum', '#3498db', 'Humidity (%)', humThreshold, 'chart_hum');
+      } catch (e) {
+        console.error('Error loading data', e);
       }
     }
 
-    setInterval(fetchAndDraw, 60000); // Auto-refresh every minute
+    function drawChart(rows, key, color, ylabel, threshold, containerId) {
+      const data = new google.visualization.DataTable();
+      data.addColumn('datetime', 'Time');
+      data.addColumn('number', ylabel);
+      data.addColumn('number', 'Threshold');
+
+      rows.forEach(r => {
+        const t = new Date(r.time);
+        const v = parseFloat(r[key]);
+        data.addRow([t, v, threshold]);
+      });
+
+      const options = {
+        title: ylabel + ' Over Time',
+        hAxis:{format:'h:mm a'},
+        vAxis:{title: ylabel},
+        colors: [color, 'red'],
+        legend:{position:'bottom'},
+        series:{1:{type:'line',lineDashStyle:[4,4],visibleInLegend:false}},
+        annotations:{textStyle:{fontSize:0}}
+      };
+
+      new google.visualization.LineChart(document.getElementById(containerId)).draw(data, options);
+    }
   </script>
 </body>
 </html>
