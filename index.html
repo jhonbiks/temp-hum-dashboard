@@ -26,7 +26,7 @@
     }
     label {
       display: inline-block;
-      width: 200px;
+      width: 220px;
     }
     input {
       padding: 5px;
@@ -72,6 +72,7 @@
 
   <script>
     const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rKfBcv_eMbXh7cdIHUNXL6zIfOy/pub?output=csv';
+    const scriptURL = 'https://script.google.com/macros/library/d/1ujjf1uiw6_MJOElGmlP59wpXYdjvQeUz8rXuO_2Z_MXWvyw46rwBVLnt/1';
 
     google.charts.load('current', {'packages':['corechart']});
     google.charts.setOnLoadCallback(drawCharts);
@@ -121,10 +122,9 @@
     function sendThresholds() {
       const temp = document.getElementById('tempThreshold').value;
       const hum = document.getElementById('humThreshold').value;
-      const scriptURL = 'https://script.google.com/macros/library/d/1ujjf1uiw6_MJOElGmlP59wpXYdjvQeUz8rXuO_2Z_MXWvyw46rwBVLnt/1';
       const url = `${scriptURL}?temp=${temp}&hum=${hum}`;
 
-      fetch(url, { method: 'POST' })
+      fetch(url)
         .then(response => {
           if (response.ok) {
             document.getElementById('statusMsg').textContent = '✅ Thresholds saved to Google Apps Script!';
@@ -146,7 +146,7 @@
       if (hum) document.getElementById('humThreshold').value = hum;
     });
 
-    setInterval(drawCharts, 60000); // Refresh every 60 seconds
+    setInterval(drawCharts, 10000); // Auto-refresh every 10s
   </script>
 </body>
 </html>
