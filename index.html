@@ -7,171 +7,97 @@
     body {
       font-family: Arial, sans-serif;
       padding: 20px;
-      max-width: 900px;
+      max-width: 700px;
       margin: auto;
     }
 
-    h1 {
-      color: #008080;
+    h1, h3 {
       text-align: center;
     }
 
-    .reading {
-      font-size: 1.5em;
-      text-align: center;
-      margin-bottom: 20px;
+    label {
+      display: block;
+      margin: 10px 0 5px;
     }
 
-    #chart_temp, #chart_hum {
+    input[type="number"] {
+      padding: 5px;
+      width: 100%;
+    }
+
+    button {
+      padding: 10px;
+      width: 100%;
+      background-color: #4CAF50;
+      color: white;
+      font-size: 16px;
+      border: none;
+      cursor: pointer;
+      margin-top: 15px;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    #chartContainer {
       margin-top: 30px;
     }
-
-    .button-section, .qr-section {
-      text-align: center;
-      margin-top: 40px;
-    }
-
-    .download-btn {
-      background-color: #008080;
-      color: white;
-      padding: 10px 20px;
-      text-decoration: none;
-      border-radius: 6px;
-      font-size: 1em;
-    }
-
-    .qr-section a {
-      color: #008080;
-      text-decoration: underline;
-    }
-
-    @media (max-width: 600px) {
-      .reading {
-        font-size: 1.2em;
-      }
-    }
   </style>
-
-  <!-- Google Charts Loader -->
-  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 </head>
 <body>
-  <h1>🌡️ Smart Temperature & Humidity Dashboard</h1>
 
-  <div class="reading">
-    <strong>Latest Temperature:</strong> <span id="temp">Loading...</span> °C<br>
-    <strong>Latest Humidity:</strong> <span id="hum">Loading...</span> %
+  <h1>Smart Temp-Hum Dashboard</h1>
+
+  <div id="chartContainer">
+    <!-- You can embed your chart here -->
+    <p><i>Graph area (e.g., temperature and humidity chart)</i></p>
   </div>
 
-  <div id="chart_temp"></div>
-  <div id="chart_hum"></div>
+  <h3>Adjust Thresholds</h3>
+  <label for="tempInput">Temperature Threshold (°C):</label>
+  <input type="number" id="tempInput" placeholder="Enter temperature threshold">
 
-  <div class="button-section">
-    <a class="download-btn" href="https://docs.google.com/spreadsheets/d/15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU/export?format=csv" target="_blank">⬇️ Download CSV</a>
-  </div>
+  <label for="humInput">Humidity Threshold (%):</label>
+  <input type="number" id="humInput" placeholder="Enter humidity threshold">
 
-  <div class="qr-section">
-    <h2>📄 View Full Data</h2>
-    <p><a href="https://docs.google.com/spreadsheets/d/15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU/edit?usp=sharing" target="_blank">Open in Google Sheets</a></p>
-  </div>
+  <button onclick="updateThresholds()">Update Thresholds</button>
 
-  <script type="text/javascript">
-    google.charts.load('current', { 'packages': ['corechart'] });
-    google.charts.setOnLoadCallback(initDashboard);
+  <script>
+    const dbUrl = "https://temphummonitor-a54c2-default-rtdb.firebaseio.com/thresholds.json";
 
-    let chartTemp, chartHum;
-    const rowLimit = 50;
+    // Load current thresholds from Firebase on page load
+    fetch(dbUrl)
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("tempInput").value = data.temperature;
+        document.getElementById("humInput").value = data.humidity;
+      })
+      .catch(err => {
+        alert("Failed to load thresholds.");
+        console.error(err);
+      });
 
-    function initDashboard() {
-      chartTemp = new google.visualization.LineChart(document.getElementById('chart_temp'));
-      chartHum = new google.visualization.LineChart(document.getElementById('chart_hum'));
-      fetchAndDraw();
-      setInterval(fetchAndDraw, 10000);
-    }
+    // Function to update thresholds in Firebase
+    function updateThresholds() {
+      const temp = parseFloat(document.getElementById("tempInput").value);
+      const hum = parseFloat(document.getElementById("humInput").value);
 
-    function fetchAndDraw() {
-      const queryString = encodeURIComponent(`SELECT A, B, C ORDER BY A DESC LIMIT ${rowLimit}`);
-      const sheetID = '15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU';
-      const query = new google.visualization.Query(
-        `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?sheet=Data&tq=${queryString}`
-      );
-
-      query.send(function (response) {
-        if (response.isError()) {
-          console.error('Error fetching data: ' + response.getMessage());
-          return;
-        }
-
-        const data = response.getDataTable();
-        const rows = [];
-
-        for (let i = 0; i < data.getNumberOfRows(); i++) {
-          rows.push({
-            time: data.getValue(i, 0),
-            temp: data.getValue(i, 1),
-            hum: data.getValue(i, 2)
-          });
-        }
-
-        rows.reverse();
-
-        const tempData = new google.visualization.DataTable();
-        const humData = new google.visualization.DataTable();
-        tempData.addColumn('datetime', 'Time');
-        tempData.addColumn('number', 'Temperature');
-        humData.addColumn('datetime', 'Time');
-        humData.addColumn('number', 'Humidity');
-
-        rows.forEach(r => {
-          tempData.addRow([new Date(r.time), r.temp]);
-          humData.addRow([new Date(r.time), r.hum]);
-        });
-
-        const optionsTemp = {
-          title: 'Temperature Over Time',
-          height: 300,
-          hAxis: { title: 'Time', format: 'h:mm:ss a' },
-          vAxis: { title: 'Temperature (°C)' },
-          colors: ['#e67e22'],
-          curveType: 'function',
-          legend: { position: 'bottom' },
-          animation: { duration: 300, easing: 'linear', startup: true }
-        };
-
-        const optionsHum = {
-          title: 'Humidity Over Time',
-          height: 300,
-          hAxis: { title: 'Time', format: 'h:mm:ss a' },
-          vAxis: { title: 'Humidity (%)' },
-          colors: ['#3498db'],
-          curveType: 'function',
-          legend: { position: 'bottom' },
-          animation: { duration: 300, easing: 'linear', startup: true }
-        };
-
-        chartTemp.draw(tempData, optionsTemp);
-        chartHum.draw(humData, optionsHum);
+      fetch(dbUrl, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ temperature: temp, humidity: hum })
+      })
+      .then(res => {
+        if (res.ok) alert("Thresholds updated!");
+        else alert("Failed to update thresholds.");
+      })
+      .catch(err => {
+        alert("Error updating thresholds.");
+        console.error(err);
       });
     }
-
-    // Fetch latest value for numeric display
-    const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv';
-
-    async function fetchLatestReadings() {
-      try {
-        const res = await fetch(csvUrl);
-        const csv = await res.text();
-        const rows = csv.trim().split('\n');
-        const lastRow = rows[rows.length - 1].split(',');
-        document.getElementById("temp").textContent = lastRow[1];
-        document.getElementById("hum").textContent = lastRow[2];
-      } catch (err) {
-        console.error("Error fetching latest readings:", err);
-      }
-    }
-
-    fetchLatestReadings();
-    setInterval(fetchLatestReadings, 5000);
   </script>
+
 </body>
 </html>
