@@ -110,11 +110,11 @@
   <div class="filter-section">
     <label>
       Start Date:
-      <input type="datetime-local" id="startDate">
+      <input type="date" id="startDate">
     </label>
     <label>
       End Date:
-      <input type="datetime-local" id="endDate">
+      <input type="date" id="endDate">
     </label>
     <button onclick="applyFilter()">Apply Filter</button>
     <button onclick="drawCharts(allRows)">Reset Filter</button>
@@ -285,13 +285,18 @@
 
       const start = new Date(startInput);
       const end = new Date(endInput);
+      end.setHours(23, 59, 59, 999); // Include full day
 
-      if (start >= end) {
+      if (start > end) {
         alert("Start date must be before end date.");
         return;
       }
 
-      const filtered = allRows.filter(row => row.time >= start && row.time <= end);
+      const filtered = allRows.filter(row => {
+        const dateOnly = new Date(row.time.getFullYear(), row.time.getMonth(), row.time.getDate());
+        return row.time >= start && row.time <= end;
+      });
+
       drawCharts(filtered);
     }
 
