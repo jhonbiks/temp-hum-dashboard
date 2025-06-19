@@ -22,120 +22,151 @@
       margin-bottom: 20px;
     }
 
-    .button-section {
+    #chart_temp, #chart_hum {
+      margin-top: 30px;
+    }
+
+    .button-section, .qr-section {
       text-align: center;
       margin-top: 40px;
     }
 
-    label {
-      margin: 10px;
-    }
-
-    input[type="number"] {
-      width: 80px;
-      margin: 5px;
-    }
-
-    button {
+    .download-btn {
       background-color: #008080;
       color: white;
       padding: 10px 20px;
-      border: none;
+      text-decoration: none;
       border-radius: 6px;
-      cursor: pointer;
+      font-size: 1em;
     }
 
-    #status {
-      margin-top: 10px;
-      font-weight: bold;
+    .qr-section a {
+      color: #008080;
+      text-decoration: underline;
+    }
+
+    @media (max-width: 600px) {
+      .reading {
+        font-size: 1.2em;
+      }
     }
   </style>
+
+  <!-- Google Charts Loader -->
+  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 </head>
 <body>
-
-  <h1>🌡️ Smart Temp-Hum Dashboard</h1>
+  <h1>🌡️ Smart Temperature & Humidity Dashboard</h1>
 
   <div class="reading">
     <strong>Latest Temperature:</strong> <span id="temp">Loading...</span> °C<br>
     <strong>Latest Humidity:</strong> <span id="hum">Loading...</span> %
   </div>
 
-  <!-- Threshold Input Form -->
+  <div id="chart_temp"></div>
+  <div id="chart_hum"></div>
+
   <div class="button-section">
-    <h2>✏️ Edit Thresholds</h2>
-    <form id="threshForm">
-      <label>Temp Min: <input id="tmin" type="number" step="0.1" required></label>
-      <label>Temp Max: <input id="tmax" type="number" step="0.1" required></label><br>
-      <label>Hum Min: <input id="hmin" type="number" step="0.1" required></label>
-      <label>Hum Max: <input id="hmax" type="number" step="0.1" required></label><br><br>
-      <button type="submit">Save Thresholds</button>
-      <p id="status"></p>
-    </form>
+    <a class="download-btn" href="https://docs.google.com/spreadsheets/d/15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU/export?format=csv" target="_blank">⬇️ Download CSV</a>
   </div>
 
-  <script>
-    // Replace with your actual token (for testing only!)
-    const GITHUB_PAT = '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'; // Hide or move to backend in production
+  <div class="qr-section">
+    <h2>📄 View Full Data</h2>
+    <p><a href="https://docs.google.com/spreadsheets/d/15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU/edit?usp=sharing" target="_blank">Open in Google Sheets</a></p>
+  </div>
 
-    const repoOwner = 'jhonbiks';
-    const repoName = 'temp-hum-dashboard';
+  <script type="text/javascript">
+    google.charts.load('current', { 'packages': ['corechart'] });
+    google.charts.setOnLoadCallback(initDashboard);
 
-    document.getElementById('threshForm').addEventListener('submit', async function (e) {
-      e.preventDefault();
+    let chartTemp, chartHum;
+    const rowLimit = 50;
 
-      const status = document.getElementById('status');
-      status.innerText = 'Sending update request...';
+    function initDashboard() {
+      chartTemp = new google.visualization.LineChart(document.getElementById('chart_temp'));
+      chartHum = new google.visualization.LineChart(document.getElementById('chart_hum'));
+      fetchAndDraw();
+      setInterval(fetchAndDraw, 10000);
+    }
 
-      const tmin = document.getElementById('tmin').value;
-      const tmax = document.getElementById('tmax').value;
-      const hmin = document.getElementById('hmin').value;
-      const hmax = document.getElementById('hmax').value;
+    function fetchAndDraw() {
+      const queryString = encodeURIComponent(`SELECT A, B, C ORDER BY A DESC LIMIT ${rowLimit}`);
+      const sheetID = '15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU';
+      const query = new google.visualization.Query(
+        `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?sheet=Data&tq=${queryString}`
+      );
 
-      const payload = {
-        event_type: 'update-thresholds',
-        client_payload: {
-          tempMin: tmin,
-          tempMax: tmax,
-          humMin: hmin,
-          humMax: hmax
+      query.send(function (response) {
+        if (response.isError()) {
+          console.error('Error fetching data: ' + response.getMessage());
+          return;
         }
-      };
 
-      try {
-        const res = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/dispatches`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${GITHUB_PAT}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
+        const data = response.getDataTable();
+        const rows = [];
+
+        for (let i = 0; i < data.getNumberOfRows(); i++) {
+          rows.push({
+            time: data.getValue(i, 0),
+            temp: data.getValue(i, 1),
+            hum: data.getValue(i, 2)
+          });
+        }
+
+        rows.reverse();
+
+        const tempData = new google.visualization.DataTable();
+        const humData = new google.visualization.DataTable();
+        tempData.addColumn('datetime', 'Time');
+        tempData.addColumn('number', 'Temperature');
+        humData.addColumn('datetime', 'Time');
+        humData.addColumn('number', 'Humidity');
+
+        rows.forEach(r => {
+          tempData.addRow([new Date(r.time), r.temp]);
+          humData.addRow([new Date(r.time), r.hum]);
         });
 
-        if (res.ok) {
-          status.innerText = '✅ Threshold update triggered. Check Actions tab!';
-        } else {
-          const errorData = await res.json();
-          throw new Error(errorData.message || 'Failed to trigger update');
-        }
-      } catch (err) {
-        console.error(err);
-        status.innerText = '❌ Error: ' + err.message;
-      }
-    });
+        const optionsTemp = {
+          title: 'Temperature Over Time',
+          height: 300,
+          hAxis: { title: 'Time', format: 'h:mm:ss a' },
+          vAxis: { title: 'Temperature (°C)' },
+          colors: ['#e67e22'],
+          curveType: 'function',
+          legend: { position: 'bottom' },
+          animation: { duration: 300, easing: 'linear', startup: true }
+        };
 
-    // Fetch latest readings (dummy CSV from Sheets)
+        const optionsHum = {
+          title: 'Humidity Over Time',
+          height: 300,
+          hAxis: { title: 'Time', format: 'h:mm:ss a' },
+          vAxis: { title: 'Humidity (%)' },
+          colors: ['#3498db'],
+          curveType: 'function',
+          legend: { position: 'bottom' },
+          animation: { duration: 300, easing: 'linear', startup: true }
+        };
+
+        chartTemp.draw(tempData, optionsTemp);
+        chartHum.draw(humData, optionsHum);
+      });
+    }
+
+    // Fetch latest value for numeric display
     const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv';
+
     async function fetchLatestReadings() {
       try {
         const res = await fetch(csvUrl);
         const csv = await res.text();
         const rows = csv.trim().split('\n');
         const lastRow = rows[rows.length - 1].split(',');
-        document.getElementById('temp').textContent = lastRow[1];
-        document.getElementById('hum').textContent = lastRow[2];
+        document.getElementById("temp").textContent = lastRow[1];
+        document.getElementById("hum").textContent = lastRow[2];
       } catch (err) {
-        console.error("Fetch error:", err);
+        console.error("Error fetching latest readings:", err);
       }
     }
 
