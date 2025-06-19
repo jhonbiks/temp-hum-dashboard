@@ -75,6 +75,19 @@
     <p><a href="https://docs.google.com/spreadsheets/d/15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU/edit?usp=sharing" target="_blank">Open in Google Sheets</a></p>
   </div>
 
+  <!-- Threshold Editor Section -->
+  <div class="button-section">
+    <h2>✏️ Edit Thresholds</h2>
+    <form id="threshForm">
+      <label>Temp Min: <input id="tmin" type="number" step="0.1"></label>
+      <label>Temp Max: <input id="tmax" type="number" step="0.1"></label><br>
+      <label>Hum Min: <input id="hmin" type="number" step="0.1"></label>
+      <label>Hum Max: <input id="hmax" type="number" step="0.1"></label><br><br>
+      <button type="submit">Save Thresholds</button>
+      <p id="status"></p>
+    </form>
+  </div>
+
   <script type="text/javascript">
     google.charts.load('current', { 'packages': ['corechart'] });
     google.charts.setOnLoadCallback(initDashboard);
@@ -154,7 +167,6 @@
       });
     }
 
-    // Fetch latest value for numeric display
     const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv';
 
     async function fetchLatestReadings() {
@@ -172,6 +184,49 @@
 
     fetchLatestReadings();
     setInterval(fetchLatestReadings, 5000);
+
+    // Threshold editor logic
+    document.getElementById('threshForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      document.getElementById('status').innerText = 'Updating...';
+
+      const tmin = document.getElementById('tmin').value;
+      const tmax = document.getElementById('tmax').value;
+      const hmin = document.getElementById('hmin').value;
+      const hmax = document.getElementById('hmax').value;
+
+      const newCsv = `TempMin,TempMax,HumMin,HumMax\n${tmin},${tmax},${hmin},${hmax}\n`;
+      const token = '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 // Secure in production!
+      const repo = 'jhonbiks/temp-hum-dashboard';
+      const file = 'thresholds.csv';
+
+      try {
+        const meta = await fetch(`https://api.github.com/repos/${repo}/contents/${file}`, {
+          headers: { Authorization: `token ${token}` }
+        });
+        const json = await meta.json();
+        const sha = json.sha;
+
+        const resp = await fetch(`https://api.github.com/repos/${repo}/contents/${file}`, {
+          method: 'PUT',
+          headers: {
+            Authorization: `token ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            message: 'Update thresholds from dashboard',
+            content: btoa(newCsv),
+            sha: sha
+          })
+        });
+
+        const result = await resp.json();
+        document.getElementById('status').innerText = 'Thresholds updated!';
+      } catch (err) {
+        console.error(err);
+        document.getElementById('status').innerText = 'Error: ' + err.message;
+      }
+    });
   </script>
 </body>
 </html>
