@@ -87,7 +87,6 @@
     }
   </style>
 
-  <!-- Google Charts Loader -->
   <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 </head>
 <body>
@@ -110,7 +109,6 @@
     <p><a href="https://docs.google.com/spreadsheets/d/15DwGVjWoF249GmMM7EoPMg1vGfQ_v937UTbjYVF0TuU/edit?usp=sharing" target="_blank">Open in Google Sheets</a></p>
   </div>
 
-  <!-- Firebase Threshold Section -->
   <div class="threshold-section">
     <h2>✏️ Adjust Alert Thresholds</h2>
     <label for="tempInput">Temperature Threshold (°C):</label>
@@ -123,17 +121,24 @@
   </div>
 
   <script>
-    // Firebase Threshold URL
     const firebaseThresholdsURL = "https://temphummonitor-a54c2-default-rtdb.asia-southeast1.firebasedatabase.app/thresholds.json";
+    const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv';
+
+    let thresholdTemp = null;
+    let thresholdHum = null;
 
     // Load thresholds
     fetch(firebaseThresholdsURL)
       .then(res => res.json())
       .then(data => {
         if (data) {
-          document.getElementById("tempInput").value = data.temperature ?? "";
-          document.getElementById("humInput").value = data.humidity ?? "";
+          thresholdTemp = parseFloat(data.temperature);
+          thresholdHum = parseFloat(data.humidity);
+          document.getElementById("tempInput").value = thresholdTemp ?? "";
+          document.getElementById("humInput").value = thresholdHum ?? "";
         }
+        fetchLatestReadings();
+        setInterval(fetchLatestReadings, 5000);
       })
       .catch(err => {
         console.error("Failed to load thresholds:", err);
@@ -157,6 +162,8 @@
       .then(res => {
         if (res.ok) {
           alert("✅ Thresholds updated successfully!");
+          thresholdTemp = temp;
+          thresholdHum = hum;
         } else {
           alert("❌ Failed to update thresholds.");
         }
@@ -166,7 +173,7 @@
       });
     }
 
-    // Google Charts and CSV Integration
+    // Google Charts setup
     google.charts.load('current', { 'packages': ['corechart'] });
     google.charts.setOnLoadCallback(initDashboard);
 
@@ -236,7 +243,6 @@
           vAxis: { title: 'Humidity (%)' },
           colors: ['#3498db'],
           curveType: 'function',
-          curveType: 'function',
           legend: { position: 'bottom' },
           animation: { duration: 300, easing: 'linear', startup: true }
         };
@@ -246,24 +252,28 @@
       });
     }
 
-    // Fetch latest value for numeric display
-    const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTe6lsYmds4391Gzp0MADP6CTgly8gI4cir2JlbJcoR9SSDppZw5rPXHuGfufWOGKXh9inmChEaZ8Ak/pub?gid=0&single=true&output=csv';
-
     async function fetchLatestReadings() {
       try {
         const res = await fetch(csvUrl);
         const csv = await res.text();
         const rows = csv.trim().split('\n');
         const lastRow = rows[rows.length - 1].split(',');
-        document.getElementById("temp").textContent = lastRow[1];
-        document.getElementById("hum").textContent = lastRow[2];
+
+        const tempValue = parseFloat(lastRow[1]);
+        const humValue = parseFloat(lastRow[2]);
+
+        const tempEl = document.getElementById("temp");
+        const humEl = document.getElementById("hum");
+
+        tempEl.textContent = tempValue;
+        humEl.textContent = humValue;
+
+        tempEl.style.color = thresholdTemp !== null && tempValue > thresholdTemp ? 'red' : '';
+        humEl.style.color = thresholdHum !== null && humValue > thresholdHum ? 'red' : '';
       } catch (err) {
         console.error("Error fetching latest readings:", err);
       }
     }
-
-    fetchLatestReadings();
-    setInterval(fetchLatestReadings, 5000);
   </script>
 </body>
 </html>
