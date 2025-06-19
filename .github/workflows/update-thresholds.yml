@@ -1,20 +1,8 @@
-name: Update thresholds
+name: Update Thresholds
 
 on:
-  workflow_dispatch:
-    inputs:
-      tmin:
-        description: 'Temperature Min'
-        required: true
-      tmax:
-        description: 'Temperature Max'
-        required: true
-      hmin:
-        description: 'Humidity Min'
-        required: true
-      hmax:
-        description: 'Humidity Max'
-        required: true
+  repository_dispatch:
+    types: [update-thresholds]
 
 jobs:
   update:
@@ -23,15 +11,15 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Update thresholds.csv
+      - name: Update CSV file
         run: |
           echo "TempMin,TempMax,HumMin,HumMax" > thresholds.csv
-          echo "${{ github.event.inputs.tmin }},${{ github.event.inputs.tmax }},${{ github.event.inputs.hmin }},${{ github.event.inputs.hmax }}" >> thresholds.csv
+          echo "${{ github.event.client_payload.tempMin }},${{ github.event.client_payload.tempMax }},${{ github.event.client_payload.humMin }},${{ github.event.client_payload.humMax }}" >> thresholds.csv
 
       - name: Commit and push changes
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
           git add thresholds.csv
-          git commit -m "Update thresholds.csv from workflow"
+          git commit -m "Updated thresholds via GitHub Actions"
           git push
