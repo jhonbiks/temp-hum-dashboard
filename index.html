@@ -80,13 +80,23 @@
       background-color: #006666;
     }
 
+    .filter-section {
+      text-align: center;
+      margin-top: 30px;
+    }
+
+    .filter-section input, .filter-section button {
+      font-size: 1em;
+      padding: 6px;
+      margin: 5px;
+    }
+
     @media (max-width: 600px) {
       .reading {
         font-size: 1.2em;
       }
     }
   </style>
-
   <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 </head>
 <body>
@@ -95,6 +105,19 @@
   <div class="reading">
     <strong>Latest Temperature:</strong> <span id="temp">Loading...</span> °C<br>
     <strong>Latest Humidity:</strong> <span id="hum">Loading...</span> %
+  </div>
+
+  <div class="filter-section">
+    <label>
+      Start Date:
+      <input type="datetime-local" id="startDate">
+    </label>
+    <label>
+      End Date:
+      <input type="datetime-local" id="endDate">
+    </label>
+    <button onclick="applyFilter()">Apply Filter</button>
+    <button onclick="drawCharts(allRows)">Reset Filter</button>
   </div>
 
   <div id="chart_temp"></div>
@@ -113,10 +136,8 @@
     <h2>✏️ Adjust Alert Thresholds</h2>
     <label for="tempInput">Temperature Threshold (°C):</label>
     <input type="number" id="tempInput" placeholder="Enter temperature threshold">
-
     <label for="humInput">Humidity Threshold (%):</label>
     <input type="number" id="humInput" placeholder="Enter humidity threshold">
-
     <button onclick="updateThresholds()">Update Thresholds</button>
   </div>
 
@@ -126,6 +147,9 @@
 
     let thresholdTemp = null;
     let thresholdHum = null;
+    let chartTemp, chartHum;
+    let allRows = [];
+    const rowLimit = 50;
 
     // Load thresholds
     fetch(firebaseThresholdsURL)
@@ -144,7 +168,6 @@
         console.error("Failed to load thresholds:", err);
       });
 
-    // Update thresholds in Firebase
     function updateThresholds() {
       const temp = parseFloat(document.getElementById("tempInput").value);
       const hum = parseFloat(document.getElementById("humInput").value);
@@ -173,12 +196,8 @@
       });
     }
 
-    // Google Charts setup
     google.charts.load('current', { 'packages': ['corechart'] });
     google.charts.setOnLoadCallback(initDashboard);
-
-    let chartTemp, chartHum;
-    const rowLimit = 50;
 
     function initDashboard() {
       chartTemp = new google.visualization.LineChart(document.getElementById('chart_temp'));
@@ -201,55 +220,79 @@
         }
 
         const data = response.getDataTable();
-        const rows = [];
+        allRows = [];
 
         for (let i = 0; i < data.getNumberOfRows(); i++) {
-          rows.push({
-            time: data.getValue(i, 0),
+          allRows.push({
+            time: new Date(data.getValue(i, 0)),
             temp: data.getValue(i, 1),
             hum: data.getValue(i, 2)
           });
         }
 
-        rows.reverse();
-
-        const tempData = new google.visualization.DataTable();
-        const humData = new google.visualization.DataTable();
-        tempData.addColumn('datetime', 'Time');
-        tempData.addColumn('number', 'Temperature');
-        humData.addColumn('datetime', 'Time');
-        humData.addColumn('number', 'Humidity');
-
-        rows.forEach(r => {
-          tempData.addRow([new Date(r.time), r.temp]);
-          humData.addRow([new Date(r.time), r.hum]);
-        });
-
-        const optionsTemp = {
-          title: 'Temperature Over Time',
-          height: 300,
-          hAxis: { title: 'Time', format: 'h:mm:ss a' },
-          vAxis: { title: 'Temperature (°C)' },
-          colors: ['#e67e22'],
-          curveType: 'function',
-          legend: { position: 'bottom' },
-          animation: { duration: 300, easing: 'linear', startup: true }
-        };
-
-        const optionsHum = {
-          title: 'Humidity Over Time',
-          height: 300,
-          hAxis: { title: 'Time', format: 'h:mm:ss a' },
-          vAxis: { title: 'Humidity (%)' },
-          colors: ['#3498db'],
-          curveType: 'function',
-          legend: { position: 'bottom' },
-          animation: { duration: 300, easing: 'linear', startup: true }
-        };
-
-        chartTemp.draw(tempData, optionsTemp);
-        chartHum.draw(humData, optionsHum);
+        allRows.reverse();
+        drawCharts(allRows);
       });
+    }
+
+    function drawCharts(rows) {
+      const tempData = new google.visualization.DataTable();
+      const humData = new google.visualization.DataTable();
+      tempData.addColumn('datetime', 'Time');
+      tempData.addColumn('number', 'Temperature');
+      humData.addColumn('datetime', 'Time');
+      humData.addColumn('number', 'Humidity');
+
+      rows.forEach(r => {
+        tempData.addRow([r.time, r.temp]);
+        humData.addRow([r.time, r.hum]);
+      });
+
+      const optionsTemp = {
+        title: 'Temperature Over Time',
+        height: 300,
+        hAxis: { title: 'Time', format: 'MMM d, h:mm a' },
+        vAxis: { title: 'Temperature (°C)' },
+        colors: ['#e67e22'],
+        curveType: 'function',
+        legend: { position: 'bottom' },
+        animation: { duration: 300, easing: 'linear', startup: true }
+      };
+
+      const optionsHum = {
+        title: 'Humidity Over Time',
+        height: 300,
+        hAxis: { title: 'Time', format: 'MMM d, h:mm a' },
+        vAxis: { title: 'Humidity (%)' },
+        colors: ['#3498db'],
+        curveType: 'function',
+        legend: { position: 'bottom' },
+        animation: { duration: 300, easing: 'linear', startup: true }
+      };
+
+      chartTemp.draw(tempData, optionsTemp);
+      chartHum.draw(humData, optionsHum);
+    }
+
+    function applyFilter() {
+      const startInput = document.getElementById("startDate").value;
+      const endInput = document.getElementById("endDate").value;
+
+      if (!startInput || !endInput) {
+        alert("Please select both start and end dates.");
+        return;
+      }
+
+      const start = new Date(startInput);
+      const end = new Date(endInput);
+
+      if (start >= end) {
+        alert("Start date must be before end date.");
+        return;
+      }
+
+      const filtered = allRows.filter(row => row.time >= start && row.time <= end);
+      drawCharts(filtered);
     }
 
     async function fetchLatestReadings() {
