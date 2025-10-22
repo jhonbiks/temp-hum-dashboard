@@ -123,7 +123,7 @@ function parseGViz(jsonText) {
 
 async function fetchSheet() {
   // using the GViz endpoint
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${GID}`;
+  const url = `https://docs.google.com/spreadsheets/d/e/2PACX-1vTq0y8-I6AvCUyPBppc4SZ3htd7OBWlSAM-S7DGP29vhaDqeyxhND5tVRPAOkG_XVZHawuCQPsbI77F/pubhtml`;
   statusEl.textContent = 'Fetching...';
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error('Network response not OK: ' + res.status);
