@@ -1,118 +1,144 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>HandHeld Prototype — Live Data</title>
-    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        padding: 20px;
-        background: #f9fafb;
-      }
-      h1 {
-        font-size: 20px;
-        margin-bottom: 5px;
-      }
-      #chart_div {
-        width: 100%;
-        height: 400px;
-        margin-top: 20px;
-      }
-      #controls {
-        margin-top: 10px;
-      }
-      select, button {
-        font-size: 14px;
-        padding: 4px 8px;
-        margin-right: 8px;
-      }
-      #status {
-        font-size: 14px;
-        color: #555;
-      }
-    </style>
-  </head>
-  <body>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>HandHeld Prototype — Live Data</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 20px;
+      background: #f9f9f9;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    #chartContainer {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+      padding: 16px;
+      max-width: 900px;
+      margin: auto;
+    }
+  </style>
+</head>
+<body>
+  <header>
     <h1>HandHeld Prototype — Live Data</h1>
-    <p>Source: Google Sheet (Published to Web)</p>
+    <div class="small">Source: Google Sheet (embedded ID in page)</div>
+  </header>
 
-    <div id="controls">
-      Auto-refresh:
-      <select id="refreshInterval">
-        <option value="5000">5s</option>
-        <option value="15000" selected>15s</option>
-        <option value="30000">30s</option>
-      </select>
-      <button id="refreshBtn">Refresh now</button>
-      <span id="status"></span>
-    </div>
+  <div class="controls">
+    <label for="refreshRate">Auto-refresh:</label>
+    <select id="refreshRate">
+      <option value="0">Off</option>
+      <option value="5">5s</option>
+      <option value="15" selected>15s</option>
+      <option value="30">30s</option>
+    </select>
+    <button id="refreshNow">Refresh now</button>
+    <span id="status" style="margin-left:10px; color:#777;"></span>
+  </div>
 
-    <div id="chart_div"></div>
+  <div id="chartContainer">
+    <canvas id="chart" height="100"></canvas>
+  </div>
 
-    <script>
-      // ✅ CHANGE THIS to your published Sheet URL
-      const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTq0y8-I6AvCUyPBppc4SZ3htd7OBWlSAM-S7DGP29vhaDqeyxhND5tVRPAOkG_XVZHawuCQPsbI77F/pub?output=csv";
+  <script>
+    const sheetURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTq0y8-I6AvCUyPBppc4SZ3htd7OBWlSAM-S7DGP29vhaDqeyxhND5tVRPAOkG_XVZHawuCQPsbI77F/pub?output=csv";
 
-      let chart;
-      let refreshTimer;
+    let chart;
+    const ctx = document.getElementById("chart").getContext("2d");
 
-      google.charts.load("current", { packages: ["corechart"] });
-      google.charts.setOnLoadCallback(init);
+    async function fetchData() {
+      try {
+        const response = await fetch(sheetURL);
+        const text = await response.text();
+        const rows = text.trim().split("\n").map(r => r.split(","));
+        const headers = rows.shift();
 
-      function init() {
-        chart = new google.visualization.LineChart(document.getElementById("chart_div"));
-        fetchAndDraw();
-        setAutoRefresh();
-      }
+        const dates = [];
+        const values = [];
 
-      async function fetchAndDraw() {
-        document.getElementById("status").textContent = "Fetching data...";
-        try {
-          const response = await fetch(sheetUrl);
-          const text = await response.text();
-
-          const rows = text.trim().split("\n").map(r => r.split(","));
-          const headers = rows[0];
-          const dataRows = rows.slice(1);
-
-          const dataTable = new google.visualization.DataTable();
-          dataTable.addColumn("string", headers[0]); // Timestamp or label
-          for (let i = 1; i < headers.length; i++) {
-            dataTable.addColumn("number", headers[i]);
+        rows.forEach(r => {
+          const date = new Date(r[0]); // "4/8/2025"
+          const val = parseFloat(r[1]);
+          if (!isNaN(date.getTime()) && !isNaN(val)) {
+            dates.push(date);
+            values.push(val);
           }
+        });
 
-          dataRows.forEach(r => {
-            const formatted = [r[0]];
-            for (let i = 1; i < r.length; i++) formatted.push(parseFloat(r[i]) || 0);
-            dataTable.addRow(formatted);
-          });
+        updateChart(dates, values);
+        document.getElementById("status").textContent = "Last updated: " + new Date().toLocaleTimeString();
+      } catch (err) {
+        console.error("Fetch error:", err);
+        document.getElementById("status").textContent = "Error loading data.";
+      }
+    }
 
-          const options = {
-            title: "Temperature and Humidity Live Data",
-            curveType: "function",
-            legend: { position: "bottom" },
-            hAxis: { title: headers[0] },
-            vAxis: { title: "Sensor Readings" },
-            backgroundColor: "#fff",
-          };
+    function updateChart(dates, values) {
+      if (chart) {
+        chart.data.labels = dates;
+        chart.data.datasets[0].data = values;
+        chart.update();
+        return;
+      }
 
-          chart.draw(dataTable, options);
-          document.getElementById("status").textContent = "Last updated: " + new Date().toLocaleTimeString();
-        } catch (err) {
-          document.getElementById("status").textContent = "Error: " + err.message;
-          console.error(err);
+      chart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: dates,
+          datasets: [{
+            label: "Sensor Value",
+            data: values,
+            borderColor: "rgba(75, 192, 192, 1)",
+            borderWidth: 2,
+            fill: false,
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: {
+              type: "time",
+              time: {
+                unit: "day",
+                tooltipFormat: "MMM dd, yyyy"
+              },
+              title: { display: true, text: "Date" }
+            },
+            y: {
+              title: { display: true, text: "Sensor Value" }
+            }
+          }
         }
-      }
+      });
+    }
 
-      function setAutoRefresh() {
-        clearInterval(refreshTimer);
-        const interval = document.getElementById("refreshInterval").value;
-        refreshTimer = setInterval(fetchAndDraw, parseInt(interval));
-      }
+    // Manual refresh
+    document.getElementById("refreshNow").addEventListener("click", fetchData);
 
-      document.getElementById("refreshInterval").addEventListener("change", setAutoRefresh);
-      document.getElementById("refreshBtn").addEventListener("click", fetchAndDraw);
-    </script>
-  </body>
+    // Auto-refresh handler
+    let refreshTimer = null;
+    document.getElementById("refreshRate").addEventListener("change", e => {
+      clearInterval(refreshTimer);
+      const val = parseInt(e.target.value);
+      if (val > 0) refreshTimer = setInterval(fetchData, val * 1000);
+    });
+
+    // Initial load
+    fetchData();
+  </script>
+</body>
 </html>
