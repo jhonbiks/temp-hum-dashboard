@@ -1,188 +1,118 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>HandHeld Prototype — Live Sheet Viewer</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <style>
-    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin: 16px; background:#fafafa; }
-    header { display:flex; align-items:center; gap:12px; }
-    h1 { margin:0; font-size:1.25rem; }
-    .controls { margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-    #tableWrap { max-width:100%; overflow:auto; margin-top:12px; border-radius:8px; padding:8px; background:#f8f8f8;}
-    table { border-collapse:collapse; width:100%; }
-    th, td { padding:6px 8px; text-align:left; border-bottom:1px solid #e2e2e2; }
-    #chartCard { margin-top:12px; padding:12px; background:#fff; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,0.05); }
-    .small { font-size:0.85rem; color:#666; }
-  </style>
-</head>
-<body>
-  <header>
-    <div>
-      <h1>HandHeld Prototype — Live Data</h1>
-      <div class="small">Source: Google Sheet (ID embedded in page)</div>
-    </div>
-  </header>
-
-  <div class="controls">
-    <label>Auto-refresh:
-      <select id="autoRefresh">
-        <option value="0">Off</option>
-        <option value="15">15s</option>
-        <option value="30">30s</option>
-        <option value="60" selected>60s</option>
-      </select>
-    </label>
-    <button id="refreshBtn">Refresh now</button>
-    <div id="status" class="small" style="margin-left:8px"></div>
-  </div>
-
-  <div id="chartCard">
-    <canvas id="timeseries" height="140"></canvas>
-  </div>
-
-  <div id="tableWrap">
-    <table id="dataTable" aria-describedby="tableCaption">
-      <caption id="tableCaption" style="text-align:left; padding:6px 0;"></caption>
-      <thead id="thead"></thead>
-      <tbody id="tbody"></tbody>
-    </table>
-  </div>
-
-<script>
-window.onload = () => {
-  const SHEET_ID = '138gz7ZmlVvjCXWaPDm7YH3ROI9pYiZZGtiZsHiCxZI0';
-  const GID = '0';
-  const TIME_COLUMN_INDEX = 0;
-  const VALUE_COLUMN_INDEX = 1;
-  let autoRefreshInterval = null;
-
-  const statusEl = document.getElementById('status');
-  const refreshBtn = document.getElementById('refreshBtn');
-  const autoSel = document.getElementById('autoRefresh');
-
-  refreshBtn.addEventListener('click', fetchAndRender);
-  autoSel.addEventListener('change', () => {
-    const s = Number(autoSel.value);
-    if (autoRefreshInterval) {
-      clearInterval(autoRefreshInterval);
-      autoRefreshInterval = null;
-    }
-    if (s > 0) {
-      autoRefreshInterval = setInterval(fetchAndRender, s * 1000);
-    }
-  });
-
-  const ctx = document.getElementById('timeseries').getContext('2d');
-  const chart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'Sensor Value',
-        data: [],
-        borderColor: 'blue',
-        backgroundColor: 'rgba(0,0,255,0.1)',
-        tension: 0.2,
-        pointRadius: 2
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: true } },
-      scales: {
-        x: { 
-          type: 'time',
-          time: { tooltipFormat: 'MMM d yyyy HH:mm', unit: 'minute' },
-          title: { display: true, text: 'Time' }
-        },
-        y: { title: { display: true, text: 'Value' } }
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>HandHeld Prototype — Live Data</title>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+        background: #f9fafb;
       }
-    }
-  });
+      h1 {
+        font-size: 20px;
+        margin-bottom: 5px;
+      }
+      #chart_div {
+        width: 100%;
+        height: 400px;
+        margin-top: 20px;
+      }
+      #controls {
+        margin-top: 10px;
+      }
+      select, button {
+        font-size: 14px;
+        padding: 4px 8px;
+        margin-right: 8px;
+      }
+      #status {
+        font-size: 14px;
+        color: #555;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>HandHeld Prototype — Live Data</h1>
+    <p>Source: Google Sheet (Published to Web)</p>
 
-  function parseGViz(jsonText) {
-    const re = /google\.visualization\.Query\.setResponse\(([\s\S]+)\)/;
-    const m = jsonText.match(re);
-    if (!m) throw new Error('Unexpected GViz response format.');
-    return JSON.parse(m[1]);
-  }
+    <div id="controls">
+      Auto-refresh:
+      <select id="refreshInterval">
+        <option value="5000">5s</option>
+        <option value="15000" selected>15s</option>
+        <option value="30000">30s</option>
+      </select>
+      <button id="refreshBtn">Refresh now</button>
+      <span id="status"></span>
+    </div>
 
-  async function fetchSheet() {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${GID}`;
-    statusEl.textContent = 'Fetching...';
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error('Network response not OK: ' + res.status);
-    const text = await res.text();
-    return parseGViz(text);
-  }
+    <div id="chart_div"></div>
 
-  function gvizToArray(gviz) {
-    const cols = gviz.table.cols.map(c => c.label || c.id || '');
-    const rows = gviz.table.rows.map(r => r.c.map(cell => cell ? (cell.v ?? cell.f ?? '') : ''));
-    return { cols, rows };
-  }
+    <script>
+      // ✅ CHANGE THIS to your published Sheet URL
+      const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTq0y8-I6AvCUyPBppc4SZ3htd7OBWlSAM-S7DGP29vhaDqeyxhND5tVRPAOkG_XVZHawuCQPsbI77F/pub?output=csv";
 
-  function renderTable(cols, rows) {
-    const thead = document.getElementById('thead');
-    const tbody = document.getElementById('tbody');
-    thead.innerHTML = '';
-    tbody.innerHTML = '';
+      let chart;
+      let refreshTimer;
 
-    const headerRow = document.createElement('tr');
-    cols.forEach(c => {
-      const th = document.createElement('th');
-      th.textContent = c || 'Column';
-      headerRow.appendChild(th);
-    });
-    thead.appendChild(headerRow);
+      google.charts.load("current", { packages: ["corechart"] });
+      google.charts.setOnLoadCallback(init);
 
-    rows.forEach(r => {
-      const tr = document.createElement('tr');
-      r.forEach(v => {
-        const td = document.createElement('td');
-        td.textContent = v;
-        tr.appendChild(td);
-      });
-      tbody.appendChild(tr);
-    });
-    document.getElementById('tableCaption').textContent = `Showing ${rows.length} rows from the sheet.`;
-  }
+      function init() {
+        chart = new google.visualization.LineChart(document.getElementById("chart_div"));
+        fetchAndDraw();
+        setAutoRefresh();
+      }
 
-  function renderChart(rows) {
-    const labels = [];
-    const data = [];
-    rows.forEach(r => {
-      const t = r[TIME_COLUMN_INDEX];
-      const v = r[VALUE_COLUMN_INDEX];
-      let dt = new Date(t);
-      if (isNaN(dt)) dt = new Date(String(t));
-      labels.push(dt);
-      const num = Number(v);
-      data.push(isFinite(num) ? num : null);
-    });
-    chart.data.labels = labels;
-    chart.data.datasets[0].data = data;
-    chart.update();
-  }
+      async function fetchAndDraw() {
+        document.getElementById("status").textContent = "Fetching data...";
+        try {
+          const response = await fetch(sheetUrl);
+          const text = await response.text();
 
-  async function fetchAndRender() {
-    try {
-      const gviz = await fetchSheet();
-      const { cols, rows } = gvizToArray(gviz);
-      const validRows = rows.filter(r => r.some(cell => cell !== '' && cell !== null));
-      renderTable(cols, validRows);
-      renderChart(validRows);
-      statusEl.textContent = `Last update: ${new Date().toLocaleString()}`;
-    } catch (err) {
-      statusEl.textContent = 'Error: ' + err.message;
-      console.error(err);
-    }
-  }
+          const rows = text.trim().split("\n").map(r => r.split(","));
+          const headers = rows[0];
+          const dataRows = rows.slice(1);
 
-  fetchAndRender();
-};
-</script>
-</body>
+          const dataTable = new google.visualization.DataTable();
+          dataTable.addColumn("string", headers[0]); // Timestamp or label
+          for (let i = 1; i < headers.length; i++) {
+            dataTable.addColumn("number", headers[i]);
+          }
+
+          dataRows.forEach(r => {
+            const formatted = [r[0]];
+            for (let i = 1; i < r.length; i++) formatted.push(parseFloat(r[i]) || 0);
+            dataTable.addRow(formatted);
+          });
+
+          const options = {
+            title: "Temperature and Humidity Live Data",
+            curveType: "function",
+            legend: { position: "bottom" },
+            hAxis: { title: headers[0] },
+            vAxis: { title: "Sensor Readings" },
+            backgroundColor: "#fff",
+          };
+
+          chart.draw(dataTable, options);
+          document.getElementById("status").textContent = "Last updated: " + new Date().toLocaleTimeString();
+        } catch (err) {
+          document.getElementById("status").textContent = "Error: " + err.message;
+          console.error(err);
+        }
+      }
+
+      function setAutoRefresh() {
+        clearInterval(refreshTimer);
+        const interval = document.getElementById("refreshInterval").value;
+        refreshTimer = setInterval(fetchAndDraw, parseInt(interval));
+      }
+
+      document.getElementById("refreshInterval").addEventListener("change", setAutoRefresh);
+      document.getElementById("refreshBtn").addEventListener("click", fetchAndDraw);
+    </script>
+  </body>
 </html>
