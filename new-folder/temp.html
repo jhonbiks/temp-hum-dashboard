@@ -1,186 +1,65 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>Sensor Data — Live Sheet Viewer</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body {
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      margin: 20px;
-      background: #f5f7fa;
-      color: #222;
-    }
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Sensor Data Chart</title>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script>
+      google.charts.load('current', { packages: ['corechart'] });
+      google.charts.setOnLoadCallback(loadData);
 
-    header {
-      text-align: center;
-      margin-bottom: 20px;
-    }
+      async function loadData() {
+        const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTq0y8-I6AvCUyPBppc4SZ3htd7OBWlSAM-S7DGP29vhaDqeyxhND5tVRPAOkG_XVZHawuCQPsbI77F/pub?output=csv';
+        
+        try {
+          const response = await fetch(sheetUrl);
+          if (!response.ok) throw new Error('Network response was not ok');
+          const csv = await response.text();
+          const data = parseCSV(csv);
+          drawChart(data);
+        } catch (error) {
+          document.getElementById('status').textContent = '❌ Error loading data. Check your Sheet link or sharing settings.';
+          console.error('Error:', error);
+        }
+      }
 
-    h1 {
-      font-size: 1.6rem;
-      margin-bottom: 4px;
-    }
-
-    .subtitle {
-      font-size: 0.9rem;
-      color: #666;
-    }
-
-    .controls {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
-    }
-
-    select, button {
-      padding: 6px 10px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-      background: white;
-      font-size: 0.9rem;
-    }
-
-    #status {
-      color: #777;
-      font-size: 0.9rem;
-    }
-
-    #chartContainer {
-      background: #fff;
-      border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      padding: 16px;
-      max-width: 900px;
-      margin: auto;
-    }
-  </style>
-</head>
-
-<body>
-  <header>
-    <h1>Sensor Data — Live Sheet Viewer</h1>
-    <div class="subtitle">Source: Google Sheet (auto-refresh supported)</div>
-  </header>
-
-  <div class="controls">
-    <label for="refreshRate">Auto-refresh:</label>
-    <select id="refreshRate">
-      <option value="0">Off</option>
-      <option value="5">5s</option>
-      <option value="15" selected>15s</option>
-      <option value="30">30s</option>
-      <option value="60">60s</option>
-    </select>
-    <button id="refreshNow">Refresh now</button>
-    <span id="status"></span>
-  </div>
-
-  <div id="chartContainer">
-    <canvas id="chart" height="100"></canvas>
-  </div>
-
-  <script>
-    // ====== CONFIGURATION ======
-    const sheetURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTq0y8-I6AvCUyPBppc4SZ3htd7OBWlSAM-S7DGP29vhaDqeyxhND5tVRPAOkG_XVZHawuCQPsbI77F/pub?output=csv";
-    // ============================
-
-    let chart;
-    const ctx = document.getElementById("chart").getContext("2d");
-    const statusEl = document.getElementById("status");
-
-    async function fetchData() {
-      try {
-        statusEl.textContent = "Fetching data...";
-        const response = await fetch(sheetURL);
-        const text = await response.text();
-        const rows = text.trim().split("\n").map(r => r.split(","));
-        const headers = rows.shift();
-
-        const dates = [];
-        const values = [];
-
-        rows.forEach(r => {
-          const date = new Date(r[0].trim());
-          const val = parseFloat(r[1]);
-          if (!isNaN(date.getTime()) && !isNaN(val)) {
-            dates.push(date);
-            values.push(val);
+      function parseCSV(csvText) {
+        const rows = csvText.trim().split('\n').map(r => r.split(','));
+        rows.shift(); // Remove header row (Date, Sensor Value)
+        const dataArray = [['Date', 'Sensor Value']];
+        
+        rows.forEach(row => {
+          const date = new Date(row[0]);
+          const value = parseFloat(row[1]);
+          if (!isNaN(date.getTime()) && !isNaN(value)) {
+            dataArray.push([date, value]);
           }
         });
 
-        if (dates.length === 0) throw new Error("No valid data found.");
-
-        updateChart(dates, values);
-        statusEl.textContent = "Last updated: " + new Date().toLocaleTimeString();
-      } catch (err) {
-        console.error("Fetch error:", err);
-        statusEl.textContent = "Error loading data.";
-      }
-    }
-
-    function updateChart(dates, values) {
-      if (chart) {
-        chart.data.labels = dates;
-        chart.data.datasets[0].data = values;
-        chart.update();
-        return;
+        return google.visualization.arrayToDataTable(dataArray);
       }
 
-      chart = new Chart(ctx, {
-        type: "line",
-        data: {
-          labels: dates,
-          datasets: [{
-            label: "Sensor Value",
-            data: values,
-            borderColor: "rgba(54, 162, 235, 1)",
-            borderWidth: 2,
-            backgroundColor: "rgba(54, 162, 235, 0.1)",
-            fill: true,
-            pointRadius: 2,
-            tension: 0.2
-          }]
-        },
-        options: {
-          responsive: true,
-          scales: {
-            x: {
-              type: "time",
-              time: {
-                unit: "day",
-                tooltipFormat: "MMM dd, yyyy"
-              },
-              title: { display: true, text: "Date" }
-            },
-            y: {
-              title: { display: true, text: "Sensor Value" }
-            }
-          },
-          plugins: {
-            legend: { display: true, position: "top" }
-          }
-        }
-      });
-    }
+      function drawChart(data) {
+        const options = {
+          title: 'Sensor Data',
+          hAxis: { title: 'Date/Time' },
+          vAxis: { title: 'Sensor Value' },
+          legend: 'none',
+          curveType: 'function',
+          pointSize: 4,
+          colors: ['#1E88E5'],
+          backgroundColor: '#f8f9fa'
+        };
 
-    // Manual refresh
-    document.getElementById("refreshNow").addEventListener("click", fetchData);
-
-    // Auto-refresh handler
-    let refreshTimer = null;
-    document.getElementById("refreshRate").addEventListener("change", e => {
-      clearInterval(refreshTimer);
-      const val = parseInt(e.target.value);
-      if (val > 0) refreshTimer = setInterval(fetchData, val * 1000);
-    });
-
-    // Initial load
-    fetchData();
-  </script>
-</body>
+        const chart = new google.visualization.LineChart(document.getElementById('chart_div'));
+        chart.draw(data, options);
+        document.getElementById('status').textContent = '✅ Chart loaded successfully.';
+      }
+    </script>
+  </head>
+  <body style="font-family: Arial, sans-serif; background-color: #fff; padding: 20px;">
+    <h2>Sensor Data Dashboard</h2>
+    <p id="status">Loading data...</p>
+    <div id="chart_div" style="width: 100%; height: 500px;"></div>
+  </body>
 </html>
