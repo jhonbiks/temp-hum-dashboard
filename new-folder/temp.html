@@ -1,65 +1,81 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <title>Sensor Data Chart</title>
-    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-    <script>
-      google.charts.load('current', { packages: ['corechart'] });
-      google.charts.setOnLoadCallback(loadData);
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Sensor Data Dashboard</title>
+  <script src="https://www.gstatic.com/charts/loader.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #fafafa;
+      margin: 30px;
+      color: #333;
+    }
+    #chart_div {
+      width: 100%;
+      height: 500px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      padding: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h2>📊 Sensor Data Dashboard</h2>
+  <p id="status">Loading data from Google Sheet...</p>
+  <div id="chart_div"></div>
 
-      async function loadData() {
-        const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTq0y8-I6AvCUyPBppc4SZ3htd7OBWlSAM-S7DGP29vhaDqeyxhND5tVRPAOkG_XVZHawuCQPsbI77F/pub?output=csv';
-        
-        try {
-          const response = await fetch(sheetUrl);
-          if (!response.ok) throw new Error('Network response was not ok');
-          const csv = await response.text();
-          const data = parseCSV(csv);
-          drawChart(data);
-        } catch (error) {
-          document.getElementById('status').textContent = '❌ Error loading data. Check your Sheet link or sharing settings.';
-          console.error('Error:', error);
-        }
-      }
+  <script>
+    google.charts.load('current', { packages: ['corechart'] });
+    google.charts.setOnLoadCallback(loadData);
 
-      function parseCSV(csvText) {
-        const rows = csvText.trim().split('\n').map(r => r.split(','));
-        rows.shift(); // Remove header row (Date, Sensor Value)
-        const dataArray = [['Date', 'Sensor Value']];
-        
-        rows.forEach(row => {
-          const date = new Date(row[0]);
-          const value = parseFloat(row[1]);
-          if (!isNaN(date.getTime()) && !isNaN(value)) {
-            dataArray.push([date, value]);
-          }
-        });
+    async function loadData() {
+      const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTq0y8-I6AvCUyPBppc4SZ3htd7OBWlSAM-S7DGP29vhaDqeyxhND5tVRPAOkG_XVZHawuCQPsbI77F/pub?output=csv';
 
-        return google.visualization.arrayToDataTable(dataArray);
-      }
-
-      function drawChart(data) {
-        const options = {
-          title: 'Sensor Data',
-          hAxis: { title: 'Date/Time' },
-          vAxis: { title: 'Sensor Value' },
-          legend: 'none',
-          curveType: 'function',
-          pointSize: 4,
-          colors: ['#1E88E5'],
-          backgroundColor: '#f8f9fa'
-        };
-
-        const chart = new google.visualization.LineChart(document.getElementById('chart_div'));
-        chart.draw(data, options);
+      try {
+        const response = await fetch(sheetUrl, { cache: 'no-store' });
+        const csv = await response.text();
+        const data = parseCSV(csv);
+        drawChart(data);
         document.getElementById('status').textContent = '✅ Chart loaded successfully.';
+      } catch (error) {
+        document.getElementById('status').textContent = '❌ Error loading data. Check your sharing or publish settings.';
+        console.error(error);
       }
-    </script>
-  </head>
-  <body style="font-family: Arial, sans-serif; background-color: #fff; padding: 20px;">
-    <h2>Sensor Data Dashboard</h2>
-    <p id="status">Loading data...</p>
-    <div id="chart_div" style="width: 100%; height: 500px;"></div>
-  </body>
+    }
+
+    function parseCSV(csvText) {
+      const rows = csvText.trim().split('\n').map(r => r.split(','));
+      const header = rows.shift(); // should be ['Date', 'Sensor Value']
+      const dataArray = [['Date', 'Sensor Value']];
+
+      rows.forEach(row => {
+        const date = new Date(row[0].trim());
+        const value = parseFloat(row[1]);
+        if (!isNaN(date.getTime()) && !isNaN(value)) {
+          dataArray.push([date, value]);
+        }
+      });
+
+      return google.visualization.arrayToDataTable(dataArray);
+    }
+
+    function drawChart(data) {
+      const options = {
+        title: 'Sensor Data',
+        hAxis: { title: 'Date', format: 'MMM d, yyyy', slantedText: true },
+        vAxis: { title: 'Sensor Value' },
+        curveType: 'function',
+        legend: 'none',
+        pointSize: 4,
+        colors: ['#007bff'],
+        backgroundColor: '#fff'
+      };
+
+      const chart = new google.visualization.LineChart(document.getElementById('chart_div'));
+      chart.draw(data, options);
+    }
+  </script>
+</body>
 </html>
