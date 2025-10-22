@@ -2,39 +2,69 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>HandHeld Prototype — Live Data</title>
+  <title>Sensor Data — Live Sheet Viewer</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       margin: 20px;
-      background: #f9f9f9;
+      background: #f5f7fa;
+      color: #222;
     }
+
     header {
       text-align: center;
       margin-bottom: 20px;
     }
+
+    h1 {
+      font-size: 1.6rem;
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: #666;
+    }
+
     .controls {
       display: flex;
       justify-content: center;
+      align-items: center;
       gap: 10px;
       margin-bottom: 20px;
+      flex-wrap: wrap;
     }
+
+    select, button {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      background: white;
+      font-size: 0.9rem;
+    }
+
+    #status {
+      color: #777;
+      font-size: 0.9rem;
+    }
+
     #chartContainer {
       background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
       padding: 16px;
       max-width: 900px;
       margin: auto;
     }
   </style>
 </head>
+
 <body>
   <header>
-    <h1>HandHeld Prototype — Live Data</h1>
-    <div class="small">Source: Google Sheet (embedded ID in page)</div>
+    <h1>Sensor Data — Live Sheet Viewer</h1>
+    <div class="subtitle">Source: Google Sheet (auto-refresh supported)</div>
   </header>
 
   <div class="controls">
@@ -44,9 +74,10 @@
       <option value="5">5s</option>
       <option value="15" selected>15s</option>
       <option value="30">30s</option>
+      <option value="60">60s</option>
     </select>
     <button id="refreshNow">Refresh now</button>
-    <span id="status" style="margin-left:10px; color:#777;"></span>
+    <span id="status"></span>
   </div>
 
   <div id="chartContainer">
@@ -54,13 +85,17 @@
   </div>
 
   <script>
+    // ====== CONFIGURATION ======
     const sheetURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTq0y8-I6AvCUyPBppc4SZ3htd7OBWlSAM-S7DGP29vhaDqeyxhND5tVRPAOkG_XVZHawuCQPsbI77F/pub?output=csv";
+    // ============================
 
     let chart;
     const ctx = document.getElementById("chart").getContext("2d");
+    const statusEl = document.getElementById("status");
 
     async function fetchData() {
       try {
+        statusEl.textContent = "Fetching data...";
         const response = await fetch(sheetURL);
         const text = await response.text();
         const rows = text.trim().split("\n").map(r => r.split(","));
@@ -70,7 +105,7 @@
         const values = [];
 
         rows.forEach(r => {
-          const date = new Date(r[0]); // "4/8/2025"
+          const date = new Date(r[0].trim());
           const val = parseFloat(r[1]);
           if (!isNaN(date.getTime()) && !isNaN(val)) {
             dates.push(date);
@@ -78,11 +113,13 @@
           }
         });
 
+        if (dates.length === 0) throw new Error("No valid data found.");
+
         updateChart(dates, values);
-        document.getElementById("status").textContent = "Last updated: " + new Date().toLocaleTimeString();
+        statusEl.textContent = "Last updated: " + new Date().toLocaleTimeString();
       } catch (err) {
         console.error("Fetch error:", err);
-        document.getElementById("status").textContent = "Error loading data.";
+        statusEl.textContent = "Error loading data.";
       }
     }
 
@@ -101,10 +138,12 @@
           datasets: [{
             label: "Sensor Value",
             data: values,
-            borderColor: "rgba(75, 192, 192, 1)",
+            borderColor: "rgba(54, 162, 235, 1)",
             borderWidth: 2,
-            fill: false,
-            tension: 0.1
+            backgroundColor: "rgba(54, 162, 235, 0.1)",
+            fill: true,
+            pointRadius: 2,
+            tension: 0.2
           }]
         },
         options: {
@@ -121,6 +160,9 @@
             y: {
               title: { display: true, text: "Sensor Value" }
             }
+          },
+          plugins: {
+            legend: { display: true, position: "top" }
           }
         }
       });
