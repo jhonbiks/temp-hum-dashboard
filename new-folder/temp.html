@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
-    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin: 16px; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin: 16px; background:#fafafa; }
     header { display:flex; align-items:center; gap:12px; }
     h1 { margin:0; font-size:1.25rem; }
     .controls { margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
@@ -51,132 +51,138 @@
   </div>
 
 <script>
-const SHEET_ID = '138gz7ZmlVvjCXWaPDm7YH3ROI9pYiZZGtiZsHiCxZI0';
-const GID = '0';
-const TIME_COLUMN_INDEX = 0;
-const VALUE_COLUMN_INDEX = 1;
-let autoRefreshInterval = null;
+window.onload = () => {
+  const SHEET_ID = '138gz7ZmlVvjCXWaPDm7YH3ROI9pYiZZGtiZsHiCxZI0';
+  const GID = '0';
+  const TIME_COLUMN_INDEX = 0;
+  const VALUE_COLUMN_INDEX = 1;
+  let autoRefreshInterval = null;
 
-const statusEl = document.getElementById('status');
-const refreshBtn = document.getElementById('refreshBtn');
-const autoSel = document.getElementById('autoRefresh');
+  const statusEl = document.getElementById('status');
+  const refreshBtn = document.getElementById('refreshBtn');
+  const autoSel = document.getElementById('autoRefresh');
 
-refreshBtn.addEventListener('click', fetchAndRender);
-autoSel.addEventListener('change', () => {
-  const s = Number(autoSel.value);
-  if (autoRefreshInterval) {
-    clearInterval(autoRefreshInterval);
-    autoRefreshInterval = null;
+  refreshBtn.addEventListener('click', fetchAndRender);
+  autoSel.addEventListener('change', () => {
+    const s = Number(autoSel.value);
+    if (autoRefreshInterval) {
+      clearInterval(autoRefreshInterval);
+      autoRefreshInterval = null;
+    }
+    if (s > 0) {
+      autoRefreshInterval = setInterval(fetchAndRender, s * 1000);
+    }
+  });
+
+  const ctx = document.getElementById('timeseries').getContext('2d');
+  const chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: 'Sensor Value',
+        data: [],
+        borderColor: 'blue',
+        backgroundColor: 'rgba(0,0,255,0.1)',
+        tension: 0.2,
+        pointRadius: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: true } },
+      scales: {
+        x: { 
+          type: 'time',
+          time: { tooltipFormat: 'MMM d yyyy HH:mm', unit: 'minute' },
+          title: { display: true, text: 'Time' }
+        },
+        y: { title: { display: true, text: 'Value' } }
+      }
+    }
+  });
+
+  function parseGViz(jsonText) {
+    const re = /google\.visualization\.Query\.setResponse\(([\s\S]+)\)/;
+    const m = jsonText.match(re);
+    if (!m) throw new Error('Unexpected GViz response format.');
+    return JSON.parse(m[1]);
   }
-  if (s > 0) {
-    autoRefreshInterval = setInterval(fetchAndRender, s * 1000);
-  }
-});
 
-const ctx = document.getElementById('timeseries').getContext('2d');
-const chart = new Chart(ctx, {
-  type: 'line',
-  data: {
-    labels: [],
-    datasets: [{
-      label: 'Sensor Value',
-      data: [],
-      tension: 0.2,
-      pointRadius: 2
-    }]
-  },
-  options: {
-    responsive: true,
-    plugins: { legend: { display: true } },
-    scales: {
-      x: { 
-        type: 'time',
-        time: { tooltipFormat: 'MMM d yyyy HH:mm', unit: 'minute' },
-        title: { display: true, text: 'Time' }
-      },
-      y: { title: { display: true, text: 'Value' } }
+  async function fetchSheet() {
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${GID}`;
+    statusEl.textContent = 'Fetching...';
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error('Network response not OK: ' + res.status);
+    const text = await res.text();
+    return parseGViz(text);
+  }
+
+  function gvizToArray(gviz) {
+    const cols = gviz.table.cols.map(c => c.label || c.id || '');
+    const rows = gviz.table.rows.map(r => r.c.map(cell => cell ? (cell.v ?? cell.f ?? '') : ''));
+    return { cols, rows };
+  }
+
+  function renderTable(cols, rows) {
+    const thead = document.getElementById('thead');
+    const tbody = document.getElementById('tbody');
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+
+    const headerRow = document.createElement('tr');
+    cols.forEach(c => {
+      const th = document.createElement('th');
+      th.textContent = c || 'Column';
+      headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      r.forEach(v => {
+        const td = document.createElement('td');
+        td.textContent = v;
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    document.getElementById('tableCaption').textContent = `Showing ${rows.length} rows from the sheet.`;
+  }
+
+  function renderChart(rows) {
+    const labels = [];
+    const data = [];
+    rows.forEach(r => {
+      const t = r[TIME_COLUMN_INDEX];
+      const v = r[VALUE_COLUMN_INDEX];
+      let dt = new Date(t);
+      if (isNaN(dt)) dt = new Date(String(t));
+      labels.push(dt);
+      const num = Number(v);
+      data.push(isFinite(num) ? num : null);
+    });
+    chart.data.labels = labels;
+    chart.data.datasets[0].data = data;
+    chart.update();
+  }
+
+  async function fetchAndRender() {
+    try {
+      const gviz = await fetchSheet();
+      const { cols, rows } = gvizToArray(gviz);
+      const validRows = rows.filter(r => r.some(cell => cell !== '' && cell !== null));
+      renderTable(cols, validRows);
+      renderChart(validRows);
+      statusEl.textContent = `Last update: ${new Date().toLocaleString()}`;
+    } catch (err) {
+      statusEl.textContent = 'Error: ' + err.message;
+      console.error(err);
     }
   }
-});
 
-function parseGViz(jsonText) {
-  const re = /google\.visualization\.Query\.setResponse\(([\s\S]+)\)/;
-  const m = jsonText.match(re);
-  if (!m) throw new Error('Unexpected GViz response format.');
-  return JSON.parse(m[1]);
-}
-
-async function fetchSheet() {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${GID}`;
-  statusEl.textContent = 'Fetching...';
-  const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) throw new Error('Network response not OK: ' + res.status);
-  const text = await res.text();
-  return parseGViz(text);
-}
-
-function gvizToArray(gviz) {
-  const cols = gviz.table.cols.map(c => c.label || c.id || '');
-  const rows = gviz.table.rows.map(r => r.c.map(cell => cell ? (cell.v ?? cell.f ?? '') : ''));
-  return { cols, rows };
-}
-
-function renderTable(cols, rows) {
-  const thead = document.getElementById('thead');
-  const tbody = document.getElementById('tbody');
-  thead.innerHTML = '';
-  tbody.innerHTML = '';
-  const headerRow = document.createElement('tr');
-  cols.forEach(c => {
-    const th = document.createElement('th');
-    th.textContent = c || 'Column';
-    headerRow.appendChild(th);
-  });
-  thead.appendChild(headerRow);
-  rows.forEach(r => {
-    const tr = document.createElement('tr');
-    r.forEach(v => {
-      const td = document.createElement('td');
-      td.textContent = v;
-      tr.appendChild(td);
-    });
-    tbody.appendChild(tr);
-  });
-  document.getElementById('tableCaption').textContent = `Showing ${rows.length} rows from the sheet.`;
-}
-
-function renderChart(rows) {
-  const labels = [];
-  const data = [];
-  rows.forEach(r => {
-    const t = r[TIME_COLUMN_INDEX];
-    const v = r[VALUE_COLUMN_INDEX];
-    let dt = new Date(t);
-    if (isNaN(dt)) dt = new Date(String(t));
-    labels.push(dt);
-    const num = Number(v);
-    data.push(isFinite(num) ? num : null);
-  });
-  chart.data.labels = labels;
-  chart.data.datasets[0].data = data;
-  chart.update();
-}
-
-async function fetchAndRender() {
-  try {
-    const gviz = await fetchSheet();
-    const { cols, rows } = gvizToArray(gviz);
-    const validRows = rows.filter(r => r.some(cell => cell !== '' && cell !== null));
-    renderTable(cols, validRows);
-    renderChart(validRows);
-    statusEl.textContent = `Last update: ${new Date().toLocaleString()}`;
-  } catch (err) {
-    statusEl.textContent = 'Error: ' + err.message;
-    console.error(err);
-  }
-}
-
-fetchAndRender();
+  fetchAndRender();
+};
 </script>
 </body>
 </html>
