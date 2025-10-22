@@ -1,81 +1,87 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>Sensor Data Dashboard</title>
-  <script src="https://www.gstatic.com/charts/loader.js"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #fafafa;
-      margin: 30px;
-      color: #333;
-    }
-    #chart_div {
-      width: 100%;
-      height: 500px;
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      padding: 16px;
-    }
-  </style>
-</head>
-<body>
-  <h2>📊 Sensor Data Dashboard</h2>
-  <p id="status">Loading data from Google Sheet...</p>
-  <div id="chart_div"></div>
+<html>
+  <head>
+    <title>Sensor Data Chart</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body style="font-family: Arial; margin: 40px;">
+    <h2>Sensor Data</h2>
+    <canvas id="sensorChart" width="800" height="400"></canvas>
 
-  <script>
-    google.charts.load('current', { packages: ['corechart'] });
-    google.charts.setOnLoadCallback(loadData);
+    <script>
+      // Google Sheets CSV link
+      const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTq0y8-I6AvCUyPBppc4SZ3htd7OBWlSAM-S7DGP29vhaDqeyxhND5tVRPAOkG_XVZHawuCQPsbI77F/pub?output=csv";
 
-    async function loadData() {
-      const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTq0y8-I6AvCUyPBppc4SZ3htd7OBWlSAM-S7DGP29vhaDqeyxhND5tVRPAOkG_XVZHawuCQPsbI77F/pub?output=csv';
+      // Fetch and parse CSV data
+      async function fetchData() {
+        const response = await fetch(csvUrl);
+        const data = await response.text();
+        const rows = data.trim().split("\n").map(r => r.split(","));
+        
+        const labels = []; // reading numbers
+        const values = [];
+        const dates = [];
 
-      try {
-        const response = await fetch(sheetUrl, { cache: 'no-store' });
-        const csv = await response.text();
-        const data = parseCSV(csv);
-        drawChart(data);
-        document.getElementById('status').textContent = '✅ Chart loaded successfully.';
-      } catch (error) {
-        document.getElementById('status').textContent = '❌ Error loading data. Check your sharing or publish settings.';
-        console.error(error);
-      }
-    }
-
-    function parseCSV(csvText) {
-      const rows = csvText.trim().split('\n').map(r => r.split(','));
-      const header = rows.shift(); // should be ['Date', 'Sensor Value']
-      const dataArray = [['Date', 'Sensor Value']];
-
-      rows.forEach(row => {
-        const date = new Date(row[0].trim());
-        const value = parseFloat(row[1]);
-        if (!isNaN(date.getTime()) && !isNaN(value)) {
-          dataArray.push([date, value]);
+        for (let i = 1; i < rows.length; i++) { // skip header
+          const date = rows[i][0];
+          const value = parseFloat(rows[i][1]);
+          if (!isNaN(value)) {
+            labels.push("Reading " + i);
+            values.push(value);
+            dates.push(date);
+          }
         }
-      });
 
-      return google.visualization.arrayToDataTable(dataArray);
-    }
+        return { labels, values, dates };
+      }
 
-    function drawChart(data) {
-      const options = {
-        title: 'Sensor Data',
-        hAxis: { title: 'Date', format: 'MMM d, yyyy', slantedText: true },
-        vAxis: { title: 'Sensor Value' },
-        curveType: 'function',
-        legend: 'none',
-        pointSize: 4,
-        colors: ['#007bff'],
-        backgroundColor: '#fff'
-      };
+      async function createChart() {
+        const { labels, values, dates } = await fetchData();
 
-      const chart = new google.visualization.LineChart(document.getElementById('chart_div'));
-      chart.draw(data, options);
-    }
-  </script>
-</body>
+        const ctx = document.getElementById("sensorChart").getContext("2d");
+        new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: labels,
+            datasets: [{
+              label: "Sensor Value",
+              data: values,
+              borderColor: "blue",
+              backgroundColor: "rgba(0, 123, 255, 0.2)",
+              fill: true,
+              tension: 0.3,
+              pointRadius: 3,
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              x: {
+                title: { display: true, text: "Reading Number" }
+              },
+              y: {
+                title: { display: true, text: "Sensor Value" },
+                beginAtZero: false
+              }
+            },
+            plugins: {
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    return "Value: " + context.parsed.y + " (" + dates[context.dataIndex] + ")";
+                  }
+                }
+              },
+              title: {
+                display: true,
+                text: "Sensor Data Over Readings"
+              }
+            }
+          }
+        });
+      }
+
+      createChart();
+    </script>
+  </body>
 </html>
