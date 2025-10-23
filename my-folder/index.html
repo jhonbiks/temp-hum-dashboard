@@ -2,38 +2,39 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Sensor Data Dashboard</title>
+  <title>Sensor, Temperature, and Humidity Data</title>
   <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
   <script>
     google.charts.load('current', { packages: ['corechart'] });
     google.charts.setOnLoadCallback(loadData);
 
     async function loadData() {
-      const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT1hZpKjv4iJ3wfOMr8UNFtnEart5xDtzbh5lKg9eKBgbMy_kZxucwYL8WpgqfRPXrG2M_igBezxwfM/pub?output=csv";
-      document.getElementById("status").textContent = "Loading data...";
-
+      const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT1hZpKjv4iJ3wfOMr8UNFtnEart5xDtzbh5lKg9eKBgbMy_kZxucwYL8WpgqfRPXrG2M_igBezxwfM/pub?output=csv';
+      
       try {
-        const response = await fetch(csvUrl);
-        if (!response.ok) throw new Error("Network response was not ok");
+        const response = await fetch(sheetUrl);
+        if (!response.ok) throw new Error('Network response was not ok');
         const csv = await response.text();
         const data = parseCSV(csv);
         drawChart(data);
       } catch (error) {
-        console.error("Error loading data:", error);
-        document.getElementById("status").textContent =
-          "❌ Error loading data. Check your Sheet link or sharing settings.";
+        document.getElementById('status').textContent = '❌ Error loading data. Check your Sheet link or sharing settings.';
+        console.error('Error:', error);
       }
     }
 
     function parseCSV(csvText) {
-      const rows = csvText.trim().split("\n").map(r => r.split(","));
-      rows.shift(); // remove header
-      const dataArray = [["Reading", "Sensor Value"]];
+      const rows = csvText.trim().split('\n').map(r => r.split(','));
+      rows.shift(); // remove header row
 
+      const dataArray = [['Reading', 'Sensor 1', 'Temperature', 'Humidity']];
       rows.forEach((row, i) => {
-        const readingLabel = `Reading ${i + 1}`;
-        const value = parseFloat(row[1]);
-        if (!isNaN(value)) dataArray.push([readingLabel, value]);
+        const sensor = parseFloat(row[1]);
+        const temp = parseFloat(row[2]);
+        const hum = parseFloat(row[3]);
+        if (!isNaN(sensor) && !isNaN(temp) && !isNaN(hum)) {
+          dataArray.push([i + 1, sensor, temp, hum]);
+        }
       });
 
       return google.visualization.arrayToDataTable(dataArray);
@@ -41,21 +42,19 @@
 
     function drawChart(data) {
       const options = {
-        title: "Sensor Data",
-        hAxis: { title: "Reading Number" },
-        vAxis: { title: "Sensor Value" },
-        legend: "none",
-        curveType: "function",
+        title: 'Sensor, Temperature, and Humidity Readings',
+        hAxis: { title: 'Reading Number' },
+        vAxis: { title: 'Value' },
+        curveType: 'function',
+        legend: { position: 'bottom' },
         pointSize: 4,
-        colors: ["#1E88E5"],
-        backgroundColor: "#f8f9fa"
+        colors: ['#1E88E5', '#E53935', '#43A047'],
+        backgroundColor: '#f8f9fa'
       };
 
-      const chart = new google.visualization.LineChart(
-        document.getElementById("chart_div")
-      );
+      const chart = new google.visualization.LineChart(document.getElementById('chart_div'));
       chart.draw(data, options);
-      document.getElementById("status").textContent = "✅ Chart loaded successfully.";
+      document.getElementById('status').textContent = '✅ Chart loaded successfully.';
     }
   </script>
 </head>
